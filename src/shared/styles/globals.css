@@ -1,0 +1,422 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式重置和基础设置 */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: theme('colors.primary.50');
+    color: theme('colors.primary.900');
+    line-height: 1.5;
+  }
+
+  /* 滚动条样式 - 工业风 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: theme('colors.primary.100');
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.primary.400');
+    border-radius: 4px;
+    border: 1px solid theme('colors.primary.200');
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.primary.500');
+  }
+
+  /* 选择文本样式 */
+  ::selection {
+    background-color: theme('colors.accent.200');
+    color: theme('colors.accent.900');
+  }
+}
+
+/* 工业风组件样式 */
+@layer components {
+  /* 工业风按钮基础样式 */
+  .btn-industrial {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-industrial transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn-industrial bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-industrial;
+  }
+
+  .btn-secondary {
+    @apply btn-industrial bg-primary-100 text-primary-700 hover:bg-primary-200 focus:ring-primary-500 border-primary-300;
+  }
+
+  .btn-accent {
+    @apply btn-industrial bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-500 shadow-industrial;
+  }
+
+  .btn-danger {
+    @apply btn-industrial bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-industrial;
+  }
+
+  .btn-success {
+    @apply btn-industrial bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-industrial;
+  }
+
+  /* 工业风输入框样式 */
+  .input-industrial {
+    @apply block w-full px-3 py-2 border border-primary-300 rounded-industrial placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors duration-200 bg-white;
+  }
+
+  .input-industrial:disabled {
+    @apply bg-primary-100 text-primary-500 cursor-not-allowed;
+  }
+
+  /* 工业风卡片样式 */
+  .card-industrial {
+    @apply bg-white border border-primary-200 rounded-industrial shadow-industrial;
+  }
+
+  .card-industrial-hover {
+    @apply card-industrial hover:shadow-industrial-lg hover:border-primary-300 transition-all duration-200;
+  }
+
+  /* 工业风面板样式 */
+  .panel-industrial {
+    @apply bg-white border border-primary-200 rounded-industrial shadow-industrial overflow-hidden;
+  }
+
+  .panel-header {
+    @apply bg-primary-50 border-b border-primary-200 px-4 py-3;
+  }
+
+  .panel-body {
+    @apply p-4;
+  }
+
+  /* 工业风标签样式 */
+  .badge-industrial {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge-industrial bg-primary-100 text-primary-800;
+  }
+
+  .badge-accent {
+    @apply badge-industrial bg-accent-100 text-accent-800;
+  }
+
+  .badge-success {
+    @apply badge-industrial bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply badge-industrial bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply badge-industrial bg-red-100 text-red-800;
+  }
+
+  /* 工业风分隔线 */
+  .divider-industrial {
+    @apply border-t border-primary-200 my-4;
+  }
+
+  /* 工业风加载动画 */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-primary-200 border-t-primary-600;
+  }
+
+  /* 工业风进度条 */
+  .progress-industrial {
+    @apply w-full bg-primary-200 rounded-full h-2 overflow-hidden;
+  }
+
+  .progress-bar {
+    @apply h-full bg-accent-500 transition-all duration-300 ease-out;
+  }
+
+  /* 工业风表格样式 */
+  .table-industrial {
+    @apply min-w-full divide-y divide-primary-200;
+  }
+
+  .table-industrial thead {
+    @apply bg-primary-50;
+  }
+
+  .table-industrial th {
+    @apply px-6 py-3 text-left text-xs font-medium text-primary-500 uppercase tracking-wider;
+  }
+
+  .table-industrial td {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-primary-900;
+  }
+
+  .table-industrial tbody tr:nth-child(even) {
+    @apply bg-primary-25;
+  }
+
+  .table-industrial tbody tr:hover {
+    @apply bg-primary-50;
+  }
+
+  /* 工业风模态框样式 */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-industrial shadow-industrial-lg max-w-md w-full mx-4 max-h-screen overflow-y-auto;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between p-4 border-b border-primary-200;
+  }
+
+  .modal-body {
+    @apply p-4;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end space-x-2 p-4 border-t border-primary-200;
+  }
+
+  /* 工业风通知样式 */
+  .notification {
+    @apply fixed top-4 right-4 max-w-sm w-full bg-white border border-primary-200 rounded-industrial shadow-industrial-lg z-50 overflow-hidden;
+  }
+
+  .notification-success {
+    @apply notification border-l-4 border-l-green-500;
+  }
+
+  .notification-error {
+    @apply notification border-l-4 border-l-red-500;
+  }
+
+  .notification-warning {
+    @apply notification border-l-4 border-l-yellow-500;
+  }
+
+  .notification-info {
+    @apply notification border-l-4 border-l-blue-500;
+  }
+
+  /* 工业风侧边栏样式 */
+  .sidebar-industrial {
+    @apply bg-primary-800 text-white w-64 min-h-screen flex flex-col;
+  }
+
+  .sidebar-header {
+    @apply p-4 border-b border-primary-700;
+  }
+
+  .sidebar-nav {
+    @apply flex-1 p-4 space-y-2;
+  }
+
+  .sidebar-nav-item {
+    @apply flex items-center space-x-3 px-3 py-2 rounded-industrial text-primary-200 hover:bg-primary-700 hover:text-white transition-colors duration-200;
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-primary-700 text-white;
+  }
+
+  /* 工业风工具提示样式 */
+  .tooltip {
+    @apply absolute z-10 px-2 py-1 text-xs text-white bg-primary-800 rounded shadow-lg pointer-events-none;
+  }
+
+  /* 工业风开关样式 */
+  .switch-industrial {
+    @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2;
+  }
+
+  .switch-industrial.enabled {
+    @apply bg-accent-500;
+  }
+
+  .switch-industrial.disabled {
+    @apply bg-primary-300;
+  }
+
+  .switch-thumb {
+    @apply inline-block h-4 w-4 transform rounded-full bg-white transition-transform;
+  }
+
+  .switch-thumb.enabled {
+    @apply translate-x-6;
+  }
+
+  .switch-thumb.disabled {
+    @apply translate-x-1;
+  }
+}
+
+/* 工具类 */
+@layer utilities {
+  /* 工业风阴影变体 */
+  .shadow-industrial-sm {
+    box-shadow: 0 1px 2px 0 rgba(45, 55, 72, 0.05);
+  }
+
+  .shadow-industrial-md {
+    box-shadow: 0 4px 6px -1px rgba(45, 55, 72, 0.1), 0 2px 4px -1px rgba(45, 55, 72, 0.06);
+  }
+
+  .shadow-industrial-xl {
+    box-shadow: 0 20px 25px -5px rgba(45, 55, 72, 0.1), 0 10px 10px -5px rgba(45, 55, 72, 0.04);
+  }
+
+  /* 工业风边框变体 */
+  .border-industrial-light {
+    border-color: theme('colors.primary.100');
+  }
+
+  .border-industrial-medium {
+    border-color: theme('colors.primary.300');
+  }
+
+  .border-industrial-dark {
+    border-color: theme('colors.primary.500');
+  }
+
+  /* 工业风背景变体 */
+  .bg-industrial-pattern {
+    background-image: 
+      linear-gradient(45deg, transparent 25%, rgba(45, 55, 72, 0.02) 25%),
+      linear-gradient(-45deg, transparent 25%, rgba(45, 55, 72, 0.02) 25%),
+      linear-gradient(45deg, rgba(45, 55, 72, 0.02) 75%, transparent 75%),
+      linear-gradient(-45deg, rgba(45, 55, 72, 0.02) 75%, transparent 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  }
+
+  /* 响应式隐藏/显示 */
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+
+  .desktop-only {
+    @apply hidden sm:block;
+  }
+
+  /* 文本截断 */
+  .text-truncate {
+    @apply truncate;
+  }
+
+  .text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .text-truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 工业风动画 */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+}
+
+/* 动画关键帧 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .card-industrial,
+  .panel-industrial {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+} 

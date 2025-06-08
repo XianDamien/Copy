@@ -1,0 +1,1 @@
+import "/assets/src/background/index-CrD1Tdnw.js";
