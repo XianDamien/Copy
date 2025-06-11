@@ -45,7 +45,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: `prose prose-sm max-w-none focus:outline-none ${minHeight} px-3 py-2`,
+        class: `prose max-w-none focus:outline-none ${minHeight} px-3 py-2 text-base`,
       },
     },
   });
@@ -167,7 +167,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       {/* Editor Content */}
       <EditorContent 
         editor={editor} 
-        className="prose prose-sm max-w-none"
+        className="prose max-w-none text-base"
       />
       
       {/* Placeholder when empty */}

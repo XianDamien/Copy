@@ -248,7 +248,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </div>
             
             <div className="space-y-4">
-              <p className="text-3xl font-bold text-primary-900 leading-relaxed">
+              <p className="text-xl font-semibold text-primary-900 leading-relaxed">
                 {chineseText}
               </p>
               

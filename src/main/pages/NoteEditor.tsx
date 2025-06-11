@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, BookOpen, FileText, Edit3 } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import type { CreateNoteRequest, NoteFields, Note, NoteType } from '../../shared/types';
+import { RichTextEditor } from '../components/common/RichTextEditor';
 
 interface NoteEditorProps {
   deckId: number;
@@ -266,13 +267,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <label className="block text-sm font-medium text-primary-700 mb-2">
                   原文内容 *
                 </label>
-                <textarea
+                <RichTextEditor
                   value={formData.chinese}
-                  onChange={(e) => handleInputChange('chinese', e.target.value)}
+                  onChange={(html) => handleInputChange('chinese', html)}
                   placeholder="请输入中文原文..."
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-24 ${
-                    errors.chinese ? 'border-red-500' : 'border-primary-300'
+                  className={`w-full ${
+                    errors.chinese ? 'border-red-500' : ''
                   }`}
+                  minHeight="h-24"
                 />
                 {errors.chinese && (
                   <p className="text-red-500 text-sm mt-1">{errors.chinese}</p>
@@ -284,13 +286,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <label className="block text-sm font-medium text-primary-700 mb-2">
                   英文翻译 *
                 </label>
-                <textarea
+                <RichTextEditor
                   value={formData.english}
-                  onChange={(e) => handleInputChange('english', e.target.value)}
+                  onChange={(html) => handleInputChange('english', html)}
                   placeholder="请输入英文翻译..."
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-24 ${
-                    errors.english ? 'border-red-500' : 'border-primary-300'
+                  className={`w-full ${
+                    errors.english ? 'border-red-500' : ''
                   }`}
+                  minHeight="h-24"
                 />
                 {errors.english && (
                   <p className="text-red-500 text-sm mt-1">{errors.english}</p>
@@ -316,11 +319,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <label className="block text-sm font-medium text-primary-700 mb-2">
                   个人笔记 (可选)
                 </label>
-                <textarea
+                <RichTextEditor
                   value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  onChange={(html) => handleInputChange('notes', html)}
                   placeholder="请输入个人笔记或备注..."
-                  className="w-full px-3 py-2 border border-primary-300 rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-32"
+                  className="w-full"
+                  minHeight="h-32"
                 />
               </div>
             </div>
