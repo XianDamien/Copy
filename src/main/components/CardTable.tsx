@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown, Edit3, Trash2, Hash, Calendar, RotateCcw } from 'lucide-react';
 import { Card, Note } from '../../shared/types';
 import { formatDueDate, safeDateTimeFormat } from '../../shared/utils/dateUtils';
-import { InlineEditor } from './InlineEditor';
-import { TagEditor } from './TagEditor';
 
 interface CardWithNote extends Card {
   note?: Note;
@@ -14,7 +12,6 @@ interface CardTableProps {
   onCardClick: (card: Card) => void;
   onEditCard?: (card: Card) => void;
   onDeleteCard?: (card: Card) => void;
-  onUpdateCard?: (cardId: number, updates: Partial<Card & { note?: Partial<Note> }>) => Promise<void>;
   selectedCards?: Set<number>;
   onSelectCard?: (cardId: number, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;
@@ -28,14 +25,12 @@ export const CardTable: React.FC<CardTableProps> = ({
   onCardClick,
   onEditCard,
   onDeleteCard,
-  onUpdateCard,
   selectedCards = new Set(),
   onSelectCard,
   onSelectAll
 }) => {
   const [sortField, setSortField] = useState<SortField>('due');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [editingCell, setEditingCell] = useState<{ cardId: number; field: string } | null>(null);
 
   const formatCardContent = (card: CardWithNote): string => {
     if (!card.note) return '内容加载中...';
@@ -149,60 +144,6 @@ export const CardTable: React.FC<CardTableProps> = ({
   const allSelected = cards.length > 0 && cards.every(card => selectedCards.has(card.id));
   const someSelected = cards.some(card => selectedCards.has(card.id));
 
-  // Get all available tags from all cards
-  const availableTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    cards.forEach(card => {
-      card.note?.tags?.forEach(tag => tagSet.add(tag));
-    });
-    return Array.from(tagSet).sort();
-  }, [cards]);
-
-  const handleCellEdit = (cardId: number, field: string) => {
-    if (!onUpdateCard) return;
-    setEditingCell({ cardId, field });
-  };
-
-  const handleCellSave = async (cardId: number, field: string, newValue: string | string[]) => {
-    if (!onUpdateCard) return;
-
-    try {
-      if (field === 'tags') {
-        await onUpdateCard(cardId, { note: { tags: newValue as string[] } });
-      } else if (field === 'content') {
-        const card = cards.find(c => c.id === cardId);
-        if (card?.note) {
-          const updates: any = { note: { fields: { ...card.note.fields } } };
-          
-          switch (card.cardType) {
-            case 'CtoE':
-              updates.note.fields.CtoE = { 
-                ...updates.note.fields.CtoE, 
-                chinese: newValue as string 
-              };
-              break;
-            case 'Retranslate':
-              updates.note.fields.Retranslate = { 
-                ...updates.note.fields.Retranslate, 
-                originalText: newValue as string 
-              };
-              break;
-          }
-          
-          await onUpdateCard(cardId, updates);
-        }
-      }
-      setEditingCell(null);
-    } catch (error) {
-      console.error('Failed to update card:', error);
-      throw error;
-    }
-  };
-
-  const handleCellCancel = () => {
-    setEditingCell(null);
-  };
-
   return (
     <div className="bg-white shadow-industrial rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -254,28 +195,9 @@ export const CardTable: React.FC<CardTableProps> = ({
                 
                 {/* 内容 */}
                 <td className="px-4 py-4">
-                  {editingCell?.cardId === card.id && editingCell?.field === 'content' ? (
-                    <InlineEditor
-                      value={formatCardContent(card)}
-                      onSave={(newValue) => handleCellSave(card.id, 'content', newValue)}
-                      onCancel={handleCellCancel}
-                      multiline={true}
-                      maxLength={200}
-                      placeholder="编辑卡片内容..."
-                      className="max-w-xs"
-                    />
-                  ) : (
-                    <div 
-                      className="text-sm text-primary-900 line-clamp-2 max-w-xs cursor-pointer hover:bg-primary-50 rounded p-1 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCellEdit(card.id, 'content');
-                      }}
-                      title="点击编辑内容"
-                    >
-                      {formatCardContent(card)}
-                    </div>
-                  )}
+                  <div className="text-sm text-primary-900 line-clamp-2 max-w-xs">
+                    {formatCardContent(card)}
+                  </div>
                 </td>
                 
                 {/* 状态 */}
@@ -297,38 +219,19 @@ export const CardTable: React.FC<CardTableProps> = ({
                 
                 {/* 标签 */}
                 <td className="px-4 py-4">
-                  {editingCell?.cardId === card.id && editingCell?.field === 'tags' ? (
-                    <TagEditor
-                      tags={card.note?.tags || []}
-                      availableTags={availableTags}
-                      onSave={(newTags) => handleCellSave(card.id, 'tags', newTags)}
-                      onCancel={handleCellCancel}
-                      maxTags={5}
-                      placeholder="添加标签..."
-                      className="min-w-[200px]"
-                    />
-                  ) : (
-                    <div 
-                      className="flex flex-wrap gap-1 cursor-pointer hover:bg-primary-50 rounded p-1 transition-colors min-h-[24px]"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCellEdit(card.id, 'tags');
-                      }}
-                      title="点击编辑标签"
-                    >
-                      {card.note?.tags?.map((tag, index) => (
-                        <span 
-                          key={index}
-                          className="inline-flex items-center px-2 py-1 text-xs font-medium bg-accent-100 text-accent-800 rounded-full"
-                        >
-                          <Hash className="w-3 h-3 mr-1" />
-                          {tag}
-                        </span>
-                      )) || (
-                        <span className="text-xs text-primary-400">点击添加标签</span>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-1 min-h-[24px]">
+                    {card.note?.tags?.map((tag, index) => (
+                      <span 
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 text-xs font-medium bg-accent-100 text-accent-800 rounded-full"
+                      >
+                        <Hash className="w-3 h-3 mr-1" />
+                        {tag}
+                      </span>
+                    )) || (
+                      <span className="text-xs text-primary-400">无标签</span>
+                    )}
+                  </div>
                 </td>
                 
                 {/* 复习次数 */}

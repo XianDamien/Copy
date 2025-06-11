@@ -1,45 +1,78 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Save, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Save, BookOpen, FileText, Edit3 } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
-import type { CreateNoteRequest, NoteFields } from '../../shared/types';
+import type { CreateNoteRequest, NoteFields, Note, NoteType } from '../../shared/types';
 
 interface NoteEditorProps {
   deckId: number;
+  noteId?: number; // Optional noteId for edit mode
+  noteType?: NoteType; // Optional noteType for creation mode
   onBack: () => void;
   onNoteSaved?: () => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, onBack, onNoteSaved }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType, onBack, onNoteSaved }) => {
+  // State for note type selection
+  const [selectedNoteType, setSelectedNoteType] = useState<NoteType | undefined>(noteType);
+  const [showTypeSelection, setShowTypeSelection] = useState(!noteType && !noteId);
+  
+  // State for CtoE form data
   const [formData, setFormData] = useState({
     chinese: '',
     english: '',
     pinyin: '',
     notes: ''
   });
+  
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const apiClient = new ApiClient();
+  const isEditMode = !!noteId;
+
+  // Fetch existing note data when in edit mode
+  useEffect(() => {
+    if (noteId) {
+      loadNoteData();
+    }
+  }, [noteId]);
+
+  const loadNoteData = async () => {
+    try {
+      setLoading(true);
+      const note: Note = await apiClient.getNoteById(noteId!);
+      
+      // Set the note type based on the loaded note
+      setSelectedNoteType(note.noteType);
+      setShowTypeSelection(false);
+      
+      // Populate form data based on note type
+      if (note.noteType === 'CtoE' && note.fields.CtoE) {
+        setFormData({
+          chinese: note.fields.CtoE.chinese || '',
+          english: note.fields.CtoE.english || '',
+          pinyin: note.fields.CtoE.pinyin || '',
+          notes: note.fields.CtoE.notes || ''
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load note:', error);
+      alert('加载笔记失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.chinese.trim()) {
-      newErrors.chinese = '请输入中文内容';
+      newErrors.chinese = '请输入原文内容';
     }
 
     if (!formData.english.trim()) {
-      newErrors.english = '请输入英文翻译';
-    }
-
-    // 简单的中文字符检测
-    if (formData.chinese.trim() && !/[\u4e00-\u9fff]/.test(formData.chinese)) {
-      newErrors.chinese = '请输入有效的中文字符';
-    }
-
-    // 简单的英文字符检测
-    if (formData.english.trim() && !/[a-zA-Z]/.test(formData.english)) {
-      newErrors.english = '请输入有效的英文字符';
+      newErrors.english = '请输入翻译内容';
     }
 
     setErrors(newErrors);
@@ -47,43 +80,60 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, onBack, onNoteSa
   };
 
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (!selectedNoteType) return;
+    
+    // Validate based on note type
+    if (selectedNoteType === 'CtoE' && !validateForm()) return;
 
     setSaving(true);
     try {
-      const noteFields: NoteFields['CtoE'] = {
-        chinese: formData.chinese.trim(),
-        english: formData.english.trim(),
-        pinyin: formData.pinyin.trim() || undefined,
-        notes: formData.notes.trim() || undefined
-      };
-
-      const noteRequest: CreateNoteRequest = {
-        deckId,
-        noteType: 'CtoE',
-        fields: { CtoE: noteFields },
-        tags: []
-      };
-
-      await apiClient.createNote(noteRequest);
+      let noteFields: Partial<NoteFields> = {};
       
-      // 重置表单
-      setFormData({
-        chinese: '',
-        english: '',
-        pinyin: '',
-        notes: ''
-      });
+      if (selectedNoteType === 'CtoE') {
+        noteFields.CtoE = {
+          chinese: formData.chinese.trim(),
+          english: formData.english.trim(),
+          pinyin: formData.pinyin.trim() || undefined,
+          notes: formData.notes.trim() || undefined
+        };
+      }
+
+      if (isEditMode) {
+        // Update existing note
+        const updates = {
+          fields: noteFields,
+          tags: [] // Keep existing tags for now
+        };
+        await apiClient.updateNote(noteId!, updates);
+        alert('笔记更新成功！');
+      } else {
+        // Create new note
+        const noteRequest: CreateNoteRequest = {
+          deckId,
+          noteType: selectedNoteType,
+          fields: noteFields,
+          tags: []
+        };
+        await apiClient.createNote(noteRequest);
+        
+        // Reset form only when creating
+        if (selectedNoteType === 'CtoE') {
+          setFormData({
+            chinese: '',
+            english: '',
+            pinyin: '',
+            notes: ''
+          });
+        }
+        alert('笔记创建成功！');
+      }
+      
       setErrors({});
-      
       onNoteSaved?.();
       
-      // 显示成功消息
-      alert('笔记创建成功！');
-      
     } catch (error) {
-      console.error('Failed to create note:', error);
-      alert('创建笔记失败，请重试');
+      console.error(`Failed to ${isEditMode ? 'update' : 'create'} note:`, error);
+      alert(`${isEditMode ? '更新' : '创建'}笔记失败，请重试`);
     } finally {
       setSaving(false);
     }
@@ -97,107 +147,139 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, onBack, onNoteSa
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* 头部 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onBack}
-            className="flex items-center space-x-2 text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>返回牌组</span>
-          </button>
-          <div className="h-6 w-px bg-primary-300" />
-          <div className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5 text-primary-500" />
-            <h2 className="text-xl font-bold text-primary-900">创建中英翻译笔记</h2>
+  const handleNoteTypeSelect = (noteType: NoteType) => {
+    setSelectedNoteType(noteType);
+    setShowTypeSelection(false);
+    setErrors({});
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-primary-50 flex items-center justify-center">
+        <div className="text-primary-600">加载中...</div>
+      </div>
+    );
+  }
+
+  // Show note type selection screen
+  if (showTypeSelection && !isEditMode) {
+    return (
+      <div className="min-h-screen bg-primary-50">
+        <div className="max-w-4xl mx-auto p-6">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              <ArrowLeft size={20} />
+              返回
+            </button>
+            <div className="w-px h-6 bg-primary-300"></div>
+            <h1 className="text-2xl font-bold text-primary-900">选择笔记类型</h1>
+          </div>
+
+          {/* Note Type Cards */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* CtoE Card */}
+            <button
+              onClick={() => handleNoteTypeSelect('CtoE')}
+              className="bg-white rounded-lg p-6 border-2 border-primary-200 hover:border-accent-500 hover:shadow-lg transition-all duration-200 text-left"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <BookOpen className="text-accent-500" size={24} />
+                <h3 className="text-lg font-semibold text-primary-900">中英对照</h3>
+              </div>
+              <p className="text-primary-600 text-sm">
+                适合学习中英文对照内容，支持拼音标注和个人笔记
+              </p>
+            </button>
+
+            {/* Other note types - keeping them for future implementation */}
+            <button
+              onClick={() => handleNoteTypeSelect('Retranslate')}
+              className="bg-white rounded-lg p-6 border-2 border-primary-200 hover:border-accent-500 hover:shadow-lg transition-all duration-200 text-left"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Edit3 className="text-accent-500" size={24} />
+                <h3 className="text-lg font-semibold text-primary-900">重译练习</h3>
+              </div>
+              <p className="text-primary-600 text-sm">
+                通过重新翻译原文来练习语言技能
+              </p>
+            </button>
+
+            <button
+              onClick={() => handleNoteTypeSelect('SentenceParaphrase')}
+              className="bg-white rounded-lg p-6 border-2 border-primary-200 hover:border-accent-500 hover:shadow-lg transition-all duration-200 text-left"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <FileText className="text-accent-500" size={24} />
+                <h3 className="text-lg font-semibold text-primary-900">句子复述</h3>
+              </div>
+              <p className="text-primary-600 text-sm">
+                练习听写和复述，提高语音理解能力
+              </p>
+            </button>
           </div>
         </div>
-        
-        <button
-          onClick={handleSave}
-          disabled={saving || !formData.chinese.trim() || !formData.english.trim()}
-          className="btn-accent flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Save className="w-4 h-4" />
-          <span>{saving ? '保存中...' : '保存笔记'}</span>
-        </button>
       </div>
+    );
+  }
 
-      {/* 表单内容 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 左侧：中文输入 */}
-        <div className="space-y-6">
-          <div className="card-industrial p-6">
-            <h3 className="text-lg font-semibold text-primary-900 mb-4 flex items-center space-x-2">
-              <span>🇨🇳</span>
-              <span>中文原文</span>
-            </h3>
+  return (
+    <div className="min-h-screen bg-primary-50">
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            <ArrowLeft size={20} />
+            返回
+          </button>
+          <div className="w-px h-6 bg-primary-300"></div>
+          <h1 className="text-2xl font-bold text-primary-900">
+            {isEditMode ? '编辑笔记' : '创建笔记'}
+          </h1>
+          {selectedNoteType && (
+            <span className="px-3 py-1 bg-accent-100 text-accent-700 rounded-full text-sm font-medium">
+              {selectedNoteType === 'CtoE' ? '中英对照' : selectedNoteType}
+            </span>
+          )}
+        </div>
+
+        {/* CtoE Form */}
+        {selectedNoteType === 'CtoE' && (
+          <div className="bg-white rounded-lg shadow-industrial border border-primary-200">
+            <div className="p-6 border-b border-primary-200">
+              <h2 className="text-lg font-semibold text-primary-900 flex items-center gap-2">
+                <BookOpen size={20} className="text-accent-500" />
+                中英对照笔记
+              </h2>
+            </div>
             
-            <div className="space-y-4">
+            <div className="p-6 space-y-6">
+              {/* Chinese Input */}
               <div>
                 <label className="block text-sm font-medium text-primary-700 mb-2">
-                  中文内容 *
+                  原文内容 *
                 </label>
                 <textarea
                   value={formData.chinese}
                   onChange={(e) => handleInputChange('chinese', e.target.value)}
-                  placeholder="请输入中文句子或短语..."
-                  rows={4}
-                  className={`input-industrial resize-none ${errors.chinese ? 'border-red-500' : ''}`}
+                  placeholder="请输入中文原文..."
+                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-24 ${
+                    errors.chinese ? 'border-red-500' : 'border-primary-300'
+                  }`}
                 />
                 {errors.chinese && (
-                  <p className="text-red-600 text-sm mt-1">{errors.chinese}</p>
+                  <p className="text-red-500 text-sm mt-1">{errors.chinese}</p>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-primary-700 mb-2">
-                  拼音（可选）
-                </label>
-                <input
-                  type="text"
-                  value={formData.pinyin}
-                  onChange={(e) => handleInputChange('pinyin', e.target.value)}
-                  placeholder="例如：nǐ hǎo"
-                  className="input-industrial"
-                />
-                <p className="text-primary-500 text-xs mt-1">
-                  添加拼音有助于发音学习
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 预览卡片 */}
-          <div className="card-industrial p-6 bg-primary-25">
-            <h4 className="text-md font-semibold text-primary-900 mb-3">卡片预览</h4>
-            <div className="bg-white rounded-lg border-2 border-dashed border-primary-300 p-4 min-h-[120px] flex items-center justify-center">
-              {formData.chinese ? (
-                <div className="text-center">
-                  <p className="text-lg text-primary-900 mb-2">{formData.chinese}</p>
-                  {formData.pinyin && (
-                    <p className="text-sm text-primary-600">{formData.pinyin}</p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-primary-500 text-sm">输入中文内容后显示预览</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 右侧：英文输入 */}
-        <div className="space-y-6">
-          <div className="card-industrial p-6">
-            <h3 className="text-lg font-semibold text-primary-900 mb-4 flex items-center space-x-2">
-              <span>🇺🇸</span>
-              <span>英文翻译</span>
-            </h3>
-            
-            <div className="space-y-4">
+              {/* English Input */}
               <div>
                 <label className="block text-sm font-medium text-primary-700 mb-2">
                   英文翻译 *
@@ -205,67 +287,57 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, onBack, onNoteSa
                 <textarea
                   value={formData.english}
                   onChange={(e) => handleInputChange('english', e.target.value)}
-                  placeholder="请输入对应的英文翻译..."
-                  rows={4}
-                  className={`input-industrial resize-none ${errors.english ? 'border-red-500' : ''}`}
+                  placeholder="请输入英文翻译..."
+                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-24 ${
+                    errors.english ? 'border-red-500' : 'border-primary-300'
+                  }`}
                 />
                 {errors.english && (
-                  <p className="text-red-600 text-sm mt-1">{errors.english}</p>
+                  <p className="text-red-500 text-sm mt-1">{errors.english}</p>
                 )}
               </div>
 
+              {/* Pinyin Input */}
               <div>
                 <label className="block text-sm font-medium text-primary-700 mb-2">
-                  学习笔记（可选）
+                  拼音标注 (可选)
+                </label>
+                <input
+                  type="text"
+                  value={formData.pinyin}
+                  onChange={(e) => handleInputChange('pinyin', e.target.value)}
+                  placeholder="请输入拼音..."
+                  className="w-full px-3 py-2 border border-primary-300 rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Notes Input */}
+              <div>
+                <label className="block text-sm font-medium text-primary-700 mb-2">
+                  个人笔记 (可选)
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
-                  placeholder="记录语法要点、使用场景等..."
-                  rows={3}
-                  className="input-industrial resize-none"
+                  placeholder="请输入个人笔记或备注..."
+                  className="w-full px-3 py-2 border border-primary-300 rounded-md focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none h-32"
                 />
-                <p className="text-primary-500 text-xs mt-1">
-                  添加个人笔记有助于记忆
-                </p>
               </div>
             </div>
-          </div>
 
-          {/* 答案预览 */}
-          <div className="card-industrial p-6 bg-accent-25">
-            <h4 className="text-md font-semibold text-primary-900 mb-3">答案预览</h4>
-            <div className="bg-white rounded-lg border-2 border-dashed border-accent-300 p-4 min-h-[120px] flex items-center justify-center">
-              {formData.english ? (
-                <div className="text-center">
-                  <p className="text-lg text-primary-900 mb-2">{formData.english}</p>
-                  {formData.notes && (
-                    <div className="text-sm text-primary-600 mt-3 p-2 bg-primary-50 rounded">
-                      <strong>笔记：</strong> {formData.notes}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-primary-500 text-sm">输入英文翻译后显示预览</p>
-              )}
+            {/* Save Button */}
+            <div className="px-6 py-4 bg-primary-50 border-t border-primary-200 flex justify-end">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 bg-accent-500 text-white px-6 py-2 rounded-md hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Save size={16} />
+                {saving ? '保存中...' : (isEditMode ? '更新笔记' : '创建笔记')}
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* 底部提示 */}
-      <div className="bg-primary-50 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <BookOpen className="w-5 h-5 text-primary-500 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-semibold text-primary-900 mb-1">学习提示</h4>
-            <ul className="text-sm text-primary-600 space-y-1">
-              <li>• 保存后将自动生成复习卡片</li>
-              <li>• 系统会根据FSRS算法安排复习时间</li>
-              <li>• 建议添加拼音和笔记以提高学习效果</li>
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

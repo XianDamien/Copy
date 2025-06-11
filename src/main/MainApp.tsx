@@ -13,19 +13,28 @@ type Page = 'home' | 'notes' | 'review' | 'stats' | 'settings' | 'cardBrowser';
 const MainApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null); // Will be used for note creation
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null); // For note editing
 
   const handleDeckSelect = (deckId: number) => {
     setSelectedDeckId(deckId);
+    setEditingNoteId(null); // Clear editing state
     setCurrentPage('cardBrowser');
   };
 
   const handleStartLearning = (deckId: number) => {
     setSelectedDeckId(deckId);
+    setEditingNoteId(null); // Clear editing state
     setCurrentPage('review');
   };
 
   const handleCreateNote = (deckId: number) => {
     setSelectedDeckId(deckId);
+    setEditingNoteId(null); // Clear editing state for create mode
+    setCurrentPage('notes');
+  };
+
+  const handleEditNote = (noteId: number) => {
+    setEditingNoteId(noteId);
     setCurrentPage('notes');
   };
 
@@ -33,7 +42,13 @@ const MainApp: React.FC = () => {
     setCurrentPage(page);
     if (page === 'home' || page === 'review') {
       setSelectedDeckId(null);
+      setEditingNoteId(null);
     }
+  };
+
+  const handleBackToCardBrowser = () => {
+    setEditingNoteId(null);
+    setCurrentPage('cardBrowser');
   };
 
   const renderCurrentPage = () => {
@@ -47,6 +62,7 @@ const MainApp: React.FC = () => {
             onBack={() => handleNavigation('home')}
             onStartLearning={handleStartLearning}
             onCreateNote={handleCreateNote}
+            onEditNote={handleEditNote}
           />
         ) : (
           <div className="text-center py-12">
@@ -65,9 +81,13 @@ const MainApp: React.FC = () => {
         return selectedDeckId ? (
           <NoteEditor 
             deckId={selectedDeckId}
-            onBack={() => handleNavigation('home')}
+            noteId={editingNoteId || undefined}
+            onBack={editingNoteId ? handleBackToCardBrowser : () => handleNavigation('home')}
             onNoteSaved={() => {
-              // 可以在这里添加成功后的操作，比如显示通知
+              // Navigate back to card browser after saving
+              if (editingNoteId) {
+                handleBackToCardBrowser();
+              }
               console.log('Note saved successfully');
             }}
           />

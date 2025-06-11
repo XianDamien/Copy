@@ -45,6 +45,8 @@ export interface Deck {
 
 export type NoteType = 'CtoE' | 'Retranslate' | 'SentenceParaphrase' | 'Article';
 
+
+
 export interface NoteFields {
   CtoE: {
     chinese: string;
@@ -285,6 +287,38 @@ export interface AIConfig {
   apiKey?: string;
   enableAutoTranslation: boolean;
   enableSpeechToText: boolean;
+}
+
+// ==================== AI 服务相关类型 ====================
+
+export type AIProvider = 'deepseek' | 'gemini';
+
+export interface AIProviderConfig {
+  deepseek?: {
+    apiKey: string;
+    baseUrl?: string;
+  };
+  gemini?: {
+    apiKey: string;
+    baseUrl?: string;
+  };
+  defaultProvider: AIProvider;
+}
+
+export interface AIDefinitionRequest {
+  word: string;
+  context?: string;
+  language?: string;
+  targetLanguage?: string;
+}
+
+export interface AIDefinitionResponse {
+  word: string;
+  definition: string;
+  grammar?: string;
+  examples?: string[];
+  pronunciation?: string;
+  provider: AIProvider;
 }
 
 // ==================== 错误类型 ====================

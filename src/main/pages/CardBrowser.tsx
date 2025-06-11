@@ -27,13 +27,15 @@ interface CardBrowserProps {
   onBack: () => void;
   onStartLearning: (deckId: number) => void;
   onCreateNote: (deckId: number) => void;
+  onEditNote?: (noteId: number) => void;
 }
 
 export const CardBrowser: React.FC<CardBrowserProps> = ({ 
   deckId, 
   onBack, 
   onStartLearning, 
-  onCreateNote 
+  onCreateNote,
+  onEditNote
 }) => {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<CardWithNote[]>([]);
@@ -137,9 +139,13 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
     setShowCardModal(true);
   };
 
-  const handleEditCard = (_card: Card) => {
-    // TODO: Implement edit functionality
-    toast.success('编辑功能即将推出');
+  const handleEditCard = (card: Card) => {
+    const cardWithNote = card as CardWithNote;
+    if (onEditNote && cardWithNote.note) {
+      onEditNote(cardWithNote.note.id);
+    } else {
+      toast.error('无法编辑此卡片：缺少笔记信息');
+    }
   };
 
   const handleDeleteCard = (_card: Card) => {
@@ -169,48 +175,6 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
     setFilteredCards(filtered);
     // Clear selections when filter changes
     setSelectedCards(new Set());
-  };
-
-  const handleUpdateCard = async (cardId: number, updates: Partial<Card & { note?: Partial<Note> }>) => {
-    try {
-      // TODO: Implement actual API call to update card
-      // For now, just update local state
-      const updatedCards = cards.map(card => {
-        if (card.id === cardId) {
-          const updatedCard = { ...card };
-          
-          if (updates.note && card.note) {
-            updatedCard.note = {
-              ...card.note,
-              ...updates.note,
-              fields: updates.note.fields ? { ...card.note.fields, ...updates.note.fields } : card.note.fields,
-              tags: updates.note.tags !== undefined ? updates.note.tags : card.note.tags
-            };
-          }
-          
-          // Update other card properties
-          Object.keys(updates).forEach(key => {
-            if (key !== 'note') {
-              (updatedCard as any)[key] = (updates as any)[key];
-            }
-          });
-          
-          return updatedCard;
-        }
-        return card;
-      });
-      
-      setCards(updatedCards);
-      setFilteredCards(prev => prev.map(card => 
-        updatedCards.find(updated => updated.id === card.id) || card
-      ));
-      
-      toast.success('卡片更新成功');
-    } catch (error) {
-      console.error('Failed to update card:', error);
-      toast.error('更新卡片失败，请重试');
-      throw error;
-    }
   };
 
   const getCardStateColor = (state: string) => {
@@ -382,7 +346,6 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
           onCardClick={handleCardClick}
           onEditCard={handleEditCard}
           onDeleteCard={handleDeleteCard}
-          onUpdateCard={handleUpdateCard}
           selectedCards={selectedCards}
           onSelectCard={handleSelectCard}
           onSelectAll={handleSelectAll}

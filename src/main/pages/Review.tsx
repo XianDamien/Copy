@@ -31,7 +31,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       startReview(deckId);
     } else {
       // Otherwise, load decks for selection screen
-      loadDecks();
+    loadDecks();
     }
   }, [deckId]);
 
@@ -71,10 +71,10 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       }
 
       if (cardsWithNotes.length > 0) {
-        setCards(cardsWithNotes);
-        setCurrentCardIndex(0);
-        setReviewedCards(0);
-        setReviewState('question');
+      setCards(cardsWithNotes);
+      setCurrentCardIndex(0);
+      setReviewedCards(0);
+      setReviewState('question');
       } else {
         setReviewState('no-cards');
       }

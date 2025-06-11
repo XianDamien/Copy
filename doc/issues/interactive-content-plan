@@ -1,0 +1,124 @@
+[MODE: PLAN]
+
+Excellent. Your specific feedback allows for a much more precise and actionable plan. Here is the revised implementation plan, tailored to your choices.
+
+### Confirmed Choices:
+*   **Initial Popup:** Display "Define Manually" and "Ask AI" buttons (Option C).
+*   **AI Services:** Integrate both DeepSeek and Gemini (Option 2).
+*   **Annotation UX:** Use a floating toolbar on text selection (Option A).
+
+---
+
+### Task Decomposition & Implementation Plan
+
+#### Phase 1: Core Interactive Editor Foundation (Priority 1)
+
+This phase focuses on replacing the static form with a rich text editor and implementing the core annotation user experience.
+
+1.  **Setup and Dependencies:**
+    *   Add TipTap and its necessary extensions to `package.json`. The `BubbleMenu` extension is crucial for the floating toolbar.
+        ```bash
+        npm install @tiptap/react @tiptap/core @tiptap/starter-kit @tiptap/extension-bubble-menu
+        ```
+
+2.  **Update Data Structures (`src/shared/types.ts`):**
+    *   (No change from previous plan) Introduce a new note type, `RichContentNote`, to hold the structured data from TipTap. Define the structure for annotations.
+    ```typescript
+    // In src/shared/types.ts
+    export interface WordAnnotation {
+      id: string; // Unique ID (e.g., using nanoid)
+      word: string;
+      definition: string;
+      grammar?: string;
+      notes?: string;
+    }
+
+    export interface RichContentNoteFields {
+      content: Record<string, any>; // TipTap editor content as JSON
+      annotations: Record<string, WordAnnotation>; // Map of annotation IDs to data
+    }
+    
+    export type NoteFields = {
+      CtoE: CtoEFields;
+      RichContent: RichContentNoteFields;
+    };
+    ```
+
+3.  **Create Custom TipTap "Mark" for Annotated Words (`src/main/components/editor/AnnotatedWordMark.ts`):**
+    *   Create a new TipTap "Mark" that will wrap annotated text (e.g., `<span data-annotation-id="xyz" class="annotated-word">...</span>`).
+    *   Define its attributes to store the `annotationId`.
+    *   Style it with a distinct visual indicator (e.g., a colored underline) that fits the industrial theme.
+    *   Implement an `onClick` handler on the rendered HTML to open the main `AnnotationPopup` for an *existing* annotation.
+
+4.  **Build the Main Editor Component with Floating Toolbar (`src/main/components/editor/InteractiveEditor.tsx`):**
+    *   Initialize TipTap with the `StarterKit` and our custom `AnnotatedWordMark`.
+    *   Implement TipTap's `BubbleMenu` extension.
+    *   Configure the `BubbleMenu` to appear only when text is selected. Inside it, place a single "Annotate" button (e.g., with a plus-icon).
+    *   When the "Annotate" button is clicked:
+        1.  Generate a new unique ID for the annotation.
+        2.  Create a new, empty `WordAnnotation` object in the component's state.
+        3.  Apply the `AnnotatedWordMark` to the user's selected text, storing the new ID.
+        4.  Trigger the `AnnotationPopup` to open for this new ID.
+
+5.  **Develop a Multi-State Annotation Popup (`src/main/components/editor/AnnotationPopup.tsx`):**
+    *   Create a modal/popup component that can manage several internal views based on its props (e.g., `isNew: boolean`).
+    *   **View 1: Initial Choice (if `isNew` is true):**
+        *   Display two large, clear buttons: "Define Manually" and "Ask AI".
+        *   Clicking "Define Manually" switches to View 2.
+        *   Clicking "Ask AI" switches to View 3 (to be fully implemented in Phase 2).
+    *   **View 2: Manual Editor (Default for existing annotations):**
+        *   Show a form with styled input fields for "Definition," "Grammar," and "Notes."
+        *   Populate fields with existing data if it's not a new annotation.
+        *   Include a "Save" button to update the state in the parent `InteractiveEditor`.
+    *   **View 3: AI Chat Interface:**
+        *   For now, this can be a placeholder. It will be built out in the next phase.
+    *   Ensure the popup's design (borders, colors, fonts) aligns with the project's industrial theme.
+
+6.  **Refactor the Note Editor Page (`src/main/pages/NoteEditor.tsx`):**
+    *   (No change from previous plan) Replace the old form elements with the new `<InteractiveEditor />` component.
+    *   Update the `handleSave` logic to correctly package the TipTap JSON content and the `annotations` map into the `RichContentNoteFields` structure for the API call.
+
+#### Phase 2: AI and Hybrid Data Integration (Priority 2)
+
+This phase brings the AI functionality to life.
+
+7.  **Multi-Provider API Key Management:**
+    *   In the extension's Options page (`OptionsApp.tsx`), create a dedicated "AI Settings" section.
+    *   Add two text input fields: one for the "DeepSeek API Key" and one for the "Gemini API Key".
+    *   Add a dropdown menu to let the user select their "Default AI Provider" (DeepSeek or Gemini).
+    *   Save these three settings securely in `chrome.storage.local`.
+
+8.  **Create a Flexible AI Service (`src/shared/utils/aiService.ts`):**
+    *   Develop a class or factory function that can interface with multiple AI providers.
+    *   Implement methods for each provider (e.g., `_callDeepSeek`, `_callGemini`) that handle their specific request formats and authentication.
+    *   Create a primary public method, `getDefinition(word: string, context: string)`. This method will first check which provider is set as the default in storage, retrieve the correct key, and then call the appropriate internal method.
+    *   Include robust error handling for API failures (e.g., invalid key, network error).
+
+9.  **Activate the AI Chat in the Popup (`AnnotationPopup.tsx`):**
+    *   In View 1, the "Ask AI" button will now call the `aiService.getDefinition` function.
+    *   Implement View 3, the AI Chat Interface:
+        *   On activation, it should show a "Loading..." state while waiting for the API response.
+        *   Display the AI's response in a formatted block.
+        *   Provide "Copy to Definition" or "Copy to Notes" buttons next to the AI response to allow the user to quickly populate the manual editor fields.
+        *   Include a text input and "Send" button to allow for follow-up questions, creating a simple chat experience.
+
+10. **Integrate Preset Grammar Rules:**
+    *   (No change from previous plan) Create a local JSON file with preset grammar rules (`src/shared/data/presetRules.json`).
+    *   In the popup's Manual Editor view (View 2), add a feature (e.g., a button that opens a searchable list) allowing users to inject these preset rules into the "Grammar" or "Notes" field.
+
+#### Phase 3: Final Polish and Review
+
+11. **Testing:**
+    *   Write unit tests for the `aiService`, mocking `chrome.storage` calls and API fetches.
+    *   Write component tests for `AnnotationPopup.tsx`, verifying it switches between its three views correctly.
+    *   Write component tests for `InteractiveEditor.tsx` to ensure the `BubbleMenu` appears and creates annotations as expected.
+    *   Manually test the full end-to-end flow with both DeepSeek and Gemini (if possible).
+
+12. **Review and Refine:**
+    *   Thoroughly review the UI against the design principles.
+    *   Ensure the UX is fluid: selection -> annotate -> choose -> edit/chat -> save.
+    *   Check for and fix any console errors or warnings.
+
+This revised plan directly incorporates your decisions, providing a clear roadmap for the development team.
+
+ENTER EXECUTE MODE

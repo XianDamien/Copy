@@ -267,7 +267,7 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
                       <div className="bg-orange-50 rounded-lg p-2">
                         <div className="text-xs text-orange-600 font-medium">学习中</div>
                         <div className="text-sm font-bold text-orange-800">{deck.statistics.learningCards || 0}</div>
-                      </div>
+                    </div>
                       <div className="bg-green-50 rounded-lg p-2">
                         <div className="text-xs text-green-600 font-medium">待复习</div>
                         <div className="text-sm font-bold text-green-800">{deck.statistics.dueCards || 0}</div>
