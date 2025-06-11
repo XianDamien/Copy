@@ -14,9 +14,10 @@ export interface NoteContext {
 export type AIAction = 'define' | 'explain' | 'translate' | 'grammar' | 'context';
 
 export interface AIInsightRequest {
-  context: NoteContext;
   action: AIAction;
-  userPrompt?: string;               // Optional custom user prompt
+  selectedText: string;
+  context: NoteContext;
+  timestamp: Date;
 }
 
 // AI Response interface
@@ -31,13 +32,11 @@ export interface AIInsightResponse {
 }
 
 // AI Service Status
-export type AIServiceStatus = 'idle' | 'loading' | 'success' | 'error';
-
 export interface AIServiceState {
-  status: AIServiceStatus;
-  currentRequest?: AIInsightRequest;
-  lastResponse?: AIInsightResponse;
-  error?: string;
+  available: boolean;
+  loading: boolean;
+  error: string | null;
+  lastRequest: AIInsightRequest | null;
 }
 
 // Context Collection Configuration

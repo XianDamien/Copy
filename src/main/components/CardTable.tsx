@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown, Edit3, Trash2, Hash, Calendar, RotateCcw } from 'lucide-react';
 import { Card, Note } from '../../shared/types';
 import { formatDueDate, safeDateTimeFormat } from '../../shared/utils/dateUtils';
+import { formatHtmlForDisplay } from '../../shared/utils/htmlUtils';
 
 interface CardWithNote extends Card {
   note?: Note;
@@ -36,14 +37,21 @@ export const CardTable: React.FC<CardTableProps> = ({
     if (!card.note) return '内容加载中...';
     
     const fields = card.note.fields;
+    let content = '';
+    
     switch (card.cardType) {
       case 'CtoE':
-        return fields.CtoE?.chinese || '无内容';
+        content = fields.CtoE?.chinese || '无内容';
+        break;
       case 'Retranslate':
-        return fields.Retranslate?.originalText || '无内容';
+        content = fields.Retranslate?.originalText || '无内容';
+        break;
       default:
         return '未知卡片类型';
     }
+    
+    // Clean HTML content for display in tables
+    return formatHtmlForDisplay(content, 60);
   };
 
   const getCardStateColor = (state: string): string => {

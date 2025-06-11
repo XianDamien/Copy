@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Minus, Plus, Edit3, SkipForward } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import type { Card, Note, AppRating, Deck } from '../../shared/types';
 
 interface ReviewProps {
   deckId?: number | null;
   onBack?: () => void;
+  onEditNote?: (noteId: number) => void;
 }
 
 type ReviewState = 'deck-selection' | 'loading' | 'question' | 'answer' | 'completed' | 'no-cards';
@@ -14,7 +15,7 @@ interface CardWithNote extends Card {
   note: Note;
 }
 
-export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
+export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) => {
   const [reviewState, setReviewState] = useState<ReviewState>(deckId ? 'loading' : 'deck-selection');
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -34,6 +35,50 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     loadDecks();
     }
   }, [deckId]);
+
+  // Keyboard shortcuts for review interface
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (reviewState === 'answer') {
+        switch (event.key) {
+          case '1':
+            event.preventDefault();
+            submitRating('Again');
+            break;
+          case '2':
+            event.preventDefault();
+            submitRating('Hard');
+            break;
+          case '3':
+            event.preventDefault();
+            submitRating('Good');
+            break;
+          case '4':
+            event.preventDefault();
+            submitRating('Easy');
+            break;
+          case 'e':
+          case 'E':
+            event.preventDefault();
+            handleEditCard();
+            break;
+          case 's':
+          case 'S':
+            event.preventDefault();
+            handleSkipCard();
+            break;
+        }
+      } else if (reviewState === 'question') {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault();
+          showAnswer();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [reviewState, cards, currentCardIndex]);
 
   const loadDecks = async () => {
     try {
@@ -118,6 +163,18 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     setCards([]);
     setCurrentCardIndex(0);
     setReviewedCards(0);
+  };
+
+  const handleEditCard = () => {
+    const currentCard = getCurrentCard();
+    if (currentCard && onEditNote) {
+      onEditNote(currentCard.note.id);
+    }
+  };
+
+  const handleSkipCard = async () => {
+    // Skip card by marking as 'Again' but continuing without user interaction
+    await submitRating('Again');
   };
 
   const getCurrentCard = () => cards[currentCardIndex];
@@ -224,7 +281,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </button>
             <div className="h-6 w-px bg-primary-300" />
             <div className="text-sm text-primary-600">
-              {currentCardIndex + 1} / {cards.length}
+              {currentCardIndex + 1} / {cards.length} ({Math.round(((currentCardIndex + 1) / cards.length) * 100)}%)
             </div>
           </div>
           <div className="flex items-center space-x-2 text-sm text-primary-600">
@@ -264,7 +321,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
                 onClick={showAnswer}
                 className="btn-accent text-lg px-8 py-3"
               >
-                显示答案
+                显示答案 (空格键)
               </button>
             </div>
           </div>
@@ -296,7 +353,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </button>
             <div className="h-6 w-px bg-primary-300" />
             <div className="text-sm text-primary-600">
-              {currentCardIndex + 1} / {cards.length}
+              {currentCardIndex + 1} / {cards.length} ({Math.round(((currentCardIndex + 1) / cards.length) * 100)}%)
             </div>
           </div>
           <div className="flex items-center space-x-2 text-sm text-primary-600">
@@ -381,7 +438,32 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </div>
 
             <div className="mt-4 text-xs text-primary-500 text-center">
-              评分会影响下次复习的时间安排
+              评分会影响下次复习的时间安排 (快捷键: 1-4)
+            </div>
+
+            {/* 额外操作按钮 */}
+            <div className="mt-6 pt-4 border-t border-primary-200">
+              <div className="flex justify-center space-x-4">
+                {onEditNote && (
+                  <button
+                    onClick={handleEditCard}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg border-2 border-primary-300 hover:border-primary-400 hover:bg-primary-50 transition-colors text-primary-700"
+                    title="编辑这张卡片 (快捷键: E)"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>编辑卡片</span>
+                  </button>
+                )}
+                
+                <button
+                  onClick={handleSkipCard}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg border-2 border-primary-300 hover:border-primary-400 hover:bg-primary-50 transition-colors text-primary-700"
+                  title="跳过这张卡片 (快捷键: S)"
+                >
+                  <SkipForward className="w-4 h-4" />
+                  <span>跳过</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

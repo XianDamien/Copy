@@ -15,6 +15,7 @@ import {
 import { ApiClient } from '../../shared/utils/api';
 import { Card, Deck, Note } from '../../shared/types';
 import { formatDueDate, safeDateTimeFormat } from '../../shared/utils/dateUtils';
+import { formatHtmlForDisplay } from '../../shared/utils/htmlUtils';
 import { CardTable } from '../components/CardTable';
 import { CardFilters, FilterState } from '../components/CardFilters';
 
@@ -191,14 +192,21 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
     if (!card.note) return '内容加载中...';
     
     const fields = card.note.fields;
+    let content = '';
+    
     switch (card.cardType) {
       case 'CtoE':
-        return fields.CtoE?.chinese || '无内容';
+        content = fields.CtoE?.chinese || '无内容';
+        break;
       case 'Retranslate':
-        return fields.Retranslate?.originalText || '无内容';
+        content = fields.Retranslate?.originalText || '无内容';
+        break;
       default:
         return '未知卡片类型';
     }
+    
+    // Clean HTML content for display in lists/tables
+    return formatHtmlForDisplay(content, 80);
   };
 
   if (loading) {

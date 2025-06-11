@@ -1,16 +1,18 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
-import { Bold, Italic, Underline as UnderlineIcon, Highlighter, Sparkles } from 'lucide-react';
-import type { NoteContext } from '../../../shared/types/aiTypes';
+import { Bold, Italic, Underline as UnderlineIcon, Highlighter, Sparkles, Loader2 } from 'lucide-react';
+import { useAIService } from '../../../shared/hooks/useAIService';
+import { AIInsightOverlay } from './AIInsightOverlay';
+import type { OverlayPosition } from '../../../shared/types/aiTypes';
 
 export interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  onAIRequest?: (selectedText: string, fullContext: NoteContext) => void;
+  onAIRequest?: (selectedText: string) => void;
   className?: string;
   minHeight?: string;
 }
@@ -23,6 +25,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className = '',
   minHeight = 'h-24'
 }) => {
+  const [overlayPosition, setOverlayPosition] = useState<OverlayPosition | null>(null);
+  
+  const aiService = useAIService({
+    onSuccess: (response) => {
+      console.log('AI response received:', response);
+    },
+    onError: (error) => {
+      console.error('AI request failed:', error);
+    }
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -60,20 +73,27 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     );
     
     if (selectedText.trim()) {
-      // Create enhanced context - this will be populated by parent in Task 4
-      const context: NoteContext = {
-        noteType: 'CtoE', // Will be passed from parent in Task 4
-        allFields: {}, // Will be populated in Task 4
-        currentField: 'unknown', // Will be identified in Task 4
-        selectedText: selectedText.trim(),
-        // Optional fields will be added by parent
-        noteId: undefined,
-        deckId: undefined
-      };
+      // Get cursor position for overlay placement
+      const selection = editor.state.selection;
+      const coords = editor.view.coordsAtPos(selection.from);
       
-      onAIRequest(selectedText.trim(), context);
+      setOverlayPosition({ 
+        x: coords.left, 
+        y: coords.top,
+        placement: 'bottom' // Default to bottom, could be made smart based on viewport
+      });
+      
+      // Call the parent's AI request handler
+      onAIRequest(selectedText.trim());
     }
   }, [editor, onAIRequest]);
+
+  // Close overlay
+  const handleCloseOverlay = useCallback(() => {
+    setOverlayPosition(null);
+    aiService.clearResponse();
+    aiService.clearError();
+  }, [aiService]);
 
   if (!editor) {
     return (
@@ -149,18 +169,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Divider */}
         <div className="w-px h-4 bg-primary-300 mx-1"></div>
 
-        {/* AI Assistance - placeholder for future integration */}
+        {/* AI Assistance */}
         <button
           onClick={handleAIRequest}
-          disabled={!onAIRequest}
+          disabled={!onAIRequest || aiService.loading}
           className={`p-1.5 rounded text-sm transition-colors ${
-            onAIRequest 
+            onAIRequest && !aiService.loading
               ? 'text-purple-600 hover:bg-purple-100 hover:text-purple-700'
               : 'text-primary-300 cursor-not-allowed'
           }`}
-          title={onAIRequest ? 'AI 辅助' : 'AI 功能即将推出'}
+          title={onAIRequest ? (aiService.loading ? 'AI 处理中...' : 'AI 辅助') : 'AI 功能即将推出'}
         >
-          <Sparkles size={16} />
+          {aiService.loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         </button>
       </BubbleMenu>
 
@@ -175,6 +195,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="absolute top-2 left-3 text-primary-400 text-sm pointer-events-none">
           {placeholder}
         </div>
+      )}
+
+      {/* AI Insight Overlay */}
+      {overlayPosition && (aiService.response || aiService.error) && (
+        <AIInsightOverlay
+          isVisible={true}
+          response={aiService.response || undefined}
+          position={overlayPosition}
+          onDismiss={handleCloseOverlay}
+        />
       )}
     </div>
   );

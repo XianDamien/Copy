@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Save, BookOpen, FileText, Edit3 } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import type { CreateNoteRequest, NoteFields, Note, NoteType } from '../../shared/types';
 import { RichTextEditor } from '../components/common/RichTextEditor';
+import { createNoteContext, extractFormFields } from '../../shared/utils/contextUtils';
+import type { NoteContext } from '../../shared/types/aiTypes';
+import { useAIService } from '../../shared/hooks/useAIService';
 
 interface NoteEditorProps {
   deckId: number;
@@ -31,6 +34,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
 
   const apiClient = new ApiClient();
   const isEditMode = !!noteId;
+
+  // AI Service integration
+  const aiService = useAIService({
+    onSuccess: (response) => {
+      console.log('AI request successful:', response);
+    },
+    onError: (error) => {
+      console.error('AI request failed:', error);
+    }
+  });
 
   // Fetch existing note data when in edit mode
   useEffect(() => {
@@ -92,11 +105,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
       
       if (selectedNoteType === 'CtoE') {
         noteFields.CtoE = {
-          chinese: formData.chinese.trim(),
-          english: formData.english.trim(),
-          pinyin: formData.pinyin.trim() || undefined,
-          notes: formData.notes.trim() || undefined
-        };
+        chinese: formData.chinese.trim(),
+        english: formData.english.trim(),
+        pinyin: formData.pinyin.trim() || undefined,
+        notes: formData.notes.trim() || undefined
+      };
       }
 
       if (isEditMode) {
@@ -109,22 +122,22 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
         alert('笔记更新成功！');
       } else {
         // Create new note
-        const noteRequest: CreateNoteRequest = {
-          deckId,
+      const noteRequest: CreateNoteRequest = {
+        deckId,
           noteType: selectedNoteType,
           fields: noteFields,
-          tags: []
-        };
-        await apiClient.createNote(noteRequest);
-        
+        tags: []
+      };
+      await apiClient.createNote(noteRequest);
+      
         // Reset form only when creating
         if (selectedNoteType === 'CtoE') {
-          setFormData({
-            chinese: '',
-            english: '',
-            pinyin: '',
-            notes: ''
-          });
+      setFormData({
+        chinese: '',
+        english: '',
+        pinyin: '',
+        notes: ''
+      });
         }
         alert('笔记创建成功！');
       }
@@ -147,6 +160,49 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  /**
+   * Create context for AI assistance
+   */
+  const createContextForField = useCallback((currentField: string, selectedText: string): NoteContext => {
+    if (!selectedNoteType) {
+      throw new Error('Note type not selected');
+    }
+
+    // Extract form fields using utility function
+    const allFields = extractFormFields(selectedNoteType, formData);
+
+    return createNoteContext(
+      selectedNoteType,
+      allFields,
+      currentField,
+      selectedText,
+      noteId,
+      deckId
+    );
+  }, [selectedNoteType, formData, noteId, deckId]);
+
+  /**
+   * Handle AI assistance request from RichTextEditor
+   */
+  const handleAIRequest = useCallback((selectedText: string, fieldName: string) => {
+    if (!selectedNoteType) {
+      console.error('No note type selected for AI request');
+      return;
+    }
+
+    try {
+      const context = createContextForField(fieldName, selectedText);
+      
+      // Make AI request with 'explain' action as default
+      // In a more advanced implementation, we could show action selection
+      aiService.makeRequest('explain', selectedText, context);
+      
+      console.log('AI request initiated:', { selectedText, fieldName, context });
+    } catch (error) {
+      console.error('Failed to create AI context:', error);
+    }
+  }, [selectedNoteType, createContextForField, aiService]);
 
   const handleNoteTypeSelect = (noteType: NoteType) => {
     setSelectedNoteType(noteType);
@@ -233,7 +289,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
       <div className="max-w-4xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button 
+          <button
             onClick={onBack}
             className="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors"
           >
@@ -250,7 +306,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
             </span>
           )}
         </div>
-
+        
         {/* CtoE Form */}
         {selectedNoteType === 'CtoE' && (
           <div className="bg-white rounded-lg shadow-industrial border border-primary-200">
@@ -259,8 +315,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <BookOpen size={20} className="text-accent-500" />
                 中英对照笔记
               </h2>
-            </div>
-            
+      </div>
+
             <div className="p-6 space-y-6">
               {/* Chinese Input */}
               <div>
@@ -270,6 +326,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <RichTextEditor
                   value={formData.chinese}
                   onChange={(html) => handleInputChange('chinese', html)}
+                  onAIRequest={(selectedText) => {
+                    handleAIRequest(selectedText, 'chinese');
+                  }}
                   placeholder="请输入中文原文..."
                   className={`w-full ${
                     errors.chinese ? 'border-red-500' : ''
@@ -289,6 +348,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <RichTextEditor
                   value={formData.english}
                   onChange={(html) => handleInputChange('english', html)}
+                  onAIRequest={(selectedText) => {
+                    handleAIRequest(selectedText, 'english');
+                  }}
                   placeholder="请输入英文翻译..."
                   className={`w-full ${
                     errors.english ? 'border-red-500' : ''
@@ -322,6 +384,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                 <RichTextEditor
                   value={formData.notes}
                   onChange={(html) => handleInputChange('notes', html)}
+                  onAIRequest={(selectedText) => {
+                    handleAIRequest(selectedText, 'notes');
+                  }}
                   placeholder="请输入个人笔记或备注..."
                   className="w-full"
                   minHeight="h-32"
