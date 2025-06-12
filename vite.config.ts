@@ -48,8 +48,7 @@ export default defineConfig({
           }
         },
         
-        // 设置页面
-        options_page: 'src/options/index.html',
+
         
         // 内容脚本
         content_scripts: [
@@ -105,7 +104,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/index.html'),
-        options: resolve(__dirname, 'src/options/index.html'),
         main: resolve(__dirname, 'src/main/index.html')
       }
     }

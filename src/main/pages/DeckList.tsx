@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { BookOpen, Plus, Edit3, Trash2, BarChart3, Play } from 'lucide-react';
+import { BookOpen, Plus, Edit3, Trash2, BarChart3, Play, TestTube } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import { Deck, DeckStatistics } from '../../shared/types';
+import { TestDataGenerator } from '../../shared/utils/testDataGenerator';
+import { FSRSTestValidator } from '../../shared/utils/fsrsTestValidator';
 
 interface DeckWithStats extends Deck {
   statistics?: DeckStatistics;
@@ -21,6 +23,7 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
+  const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: ''
@@ -115,6 +118,59 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
     }
   };
 
+  const handleGenerateTestData = async () => {
+    if (isGeneratingTestData) return;
+    
+    setIsGeneratingTestData(true);
+    
+    try {
+      toast.loading('正在生成FSRS测试数据...', { id: 'test-data' });
+      
+      // Create test deck
+      const testDeck = await apiClient.createDeck({
+        name: 'FSRS测试牌组',
+        description: '包含100张测试卡片的FSRS算法验证牌组'
+      });
+      
+      // Generate test data
+      const testDataResult = TestDataGenerator.generateTestData({
+        cardCount: 100,
+        deckName: 'FSRS测试牌组',
+        includeVariedDifficulty: true,
+        includeGrammarPatterns: true
+      });
+      
+      // Create notes and cards
+      for (const noteData of testDataResult.notes) {
+        await apiClient.createNote({
+          deckId: testDeck.id,
+          ...noteData
+        });
+      }
+      
+      // Run FSRS validation
+      const validator = new FSRSTestValidator();
+      const validationReport = await validator.runCompleteValidation();
+      
+      // Show results
+      if (validationReport.overallSuccess) {
+        toast.success('FSRS测试数据生成成功！所有测试通过', { id: 'test-data' });
+      } else {
+        const failedTests = validationReport.testResults.filter(t => !t.success);
+        toast.error(`FSRS测试完成，但有 ${failedTests.length} 个测试失败`, { id: 'test-data' });
+      }
+      
+      // Refresh deck list
+      await loadDecks();
+      
+    } catch (error) {
+      console.error('Failed to generate test data:', error);
+      toast.error('生成测试数据失败，请重试', { id: 'test-data' });
+    } finally {
+      setIsGeneratingTestData(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({ name: '', description: '' });
   };
@@ -161,13 +217,24 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
           </p>
         </div>
         
-        <button
-          onClick={openCreateModal}
-          className="btn-accent flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>创建牌组</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleGenerateTestData}
+            disabled={isGeneratingTestData}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <TestTube className="w-4 h-4" />
+            <span>{isGeneratingTestData ? '生成中...' : 'FSRS测试'}</span>
+          </button>
+          
+          <button
+            onClick={openCreateModal}
+            className="btn-accent flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>创建牌组</span>
+          </button>
+        </div>
       </div>
 
       {/* 牌组网格 */}

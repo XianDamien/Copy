@@ -287,6 +287,11 @@ class BackgroundService {
           const cardsByDeck = await dbService.getCardsByDeckId(message.payload.deckId);
           return { success: true, data: cardsByDeck };
 
+        case 'RESET_CARD_PROGRESS':
+          await dbService.resetCardProgress(message.payload.cardId);
+          await this.updateBadge();
+          return { success: true };
+
         // ==================== FSRS配置 ====================
         case 'GET_FSRS_CONFIG':
           const fsrsConfig = fsrsService.getConfig();

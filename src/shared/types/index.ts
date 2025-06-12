@@ -192,6 +192,23 @@ export interface NotificationOptions {
   duration?: number;
 }
 
+// ==================== 用户配置相关类型 ====================
+
+export interface UserSettings {
+  learningSteps: string;      // e.g., "1 10" for 1m and 10m
+  relearningSteps: string;    // e.g., "10" for 10m
+  dailyNewCardsLimit: number; // e.g., 20
+  dailyReviewLimit: number;   // e.g., 200
+}
+
+// Default values for user settings
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  learningSteps: '1 10',
+  relearningSteps: '10',
+  dailyNewCardsLimit: 20,
+  dailyReviewLimit: 200,
+};
+
 // ==================== API 相关类型 ====================
 
 export interface CreateDeckRequest {

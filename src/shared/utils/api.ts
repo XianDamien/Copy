@@ -171,6 +171,13 @@ export class ApiClient {
     return this.sendMessage('GET_CARDS_BY_DECK', { deckId });
   }
 
+  /**
+   * 重置卡片复习进度
+   */
+  async resetCardProgress(cardId: number): Promise<void> {
+    return this.sendMessage('RESET_CARD_PROGRESS', { cardId });
+  }
+
   // ==================== FSRS配置 ====================
 
   /**

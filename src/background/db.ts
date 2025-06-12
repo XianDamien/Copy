@@ -404,7 +404,7 @@ export class DatabaseService {
   /**
    * 获取到期卡片
    */
-  async getDueCards(deckId?: number, limit?: number): Promise<Card[]> {
+  async getDueCards(deckId?: number, limit?: number, dailyNewCardsLimit?: number, dailyReviewLimit?: number): Promise<Card[]> {
     const db = this.ensureDatabase();
     const now = new Date();
     
@@ -430,7 +430,85 @@ export class DatabaseService {
     // 按到期时间排序
     cards.sort((a, b) => a.due.getTime() - b.due.getTime());
     
+    // Apply daily limits if specified
+    if (dailyNewCardsLimit !== undefined || dailyReviewLimit !== undefined) {
+      return this.applyDailyLimits(cards, dailyNewCardsLimit, dailyReviewLimit);
+    }
+    
     return limit ? cards.slice(0, limit) : cards;
+  }
+
+  /**
+   * Apply daily limits to due cards based on today's review history
+   */
+  private async applyDailyLimits(
+    cards: Card[], 
+    dailyNewCardsLimit?: number, 
+    dailyReviewLimit?: number
+  ): Promise<Card[]> {
+    // Get today's review counts
+    const todayReviewCounts = await this.getTodayReviewCounts();
+    
+    const filteredCards: Card[] = [];
+    let newCardsAdded = 0;
+    let reviewCardsAdded = 0;
+    
+    for (const card of cards) {
+      const isNewCard = card.state === 'New';
+      const isReviewCard = card.state === 'Review' || card.state === 'Learning' || card.state === 'Relearning';
+      
+      // Check new cards limit
+      if (isNewCard && dailyNewCardsLimit !== undefined) {
+        if (todayReviewCounts.newCards + newCardsAdded >= dailyNewCardsLimit) {
+          continue; // Skip this new card
+        }
+        newCardsAdded++;
+      }
+      
+      // Check review cards limit
+      if (isReviewCard && dailyReviewLimit !== undefined) {
+        if (todayReviewCounts.reviewCards + reviewCardsAdded >= dailyReviewLimit) {
+          continue; // Skip this review card
+        }
+        reviewCardsAdded++;
+      }
+      
+      filteredCards.push(card);
+    }
+    
+    return filteredCards;
+  }
+
+  /**
+   * Get today's review counts from review logs
+   */
+  private async getTodayReviewCounts(): Promise<{ newCards: number; reviewCards: number }> {
+    const db = this.ensureDatabase();
+    
+    // Get start and end of today
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    // Get all review logs from today
+    const tx = db.transaction('reviewLogs', 'readonly');
+    const index = tx.store.index('reviewTime');
+    const range = IDBKeyRange.bound(startOfDay, endOfDay, false, true);
+    const todayLogs = await index.getAll(range);
+    
+    let newCards = 0;
+    let reviewCards = 0;
+    
+    // Count reviews by card type
+    for (const log of todayLogs) {
+      if (log.stateBefore === 'New') {
+        newCards++;
+      } else {
+        reviewCards++;
+      }
+    }
+    
+    return { newCards, reviewCards };
   }
 
   /**
@@ -457,20 +535,60 @@ export class DatabaseService {
    */
   async updateCard(id: number, updates: Partial<Omit<Card, 'id' | 'createdAt'>>): Promise<Card> {
     const db = this.ensureDatabase();
-    const card = await db.get('cards', id);
+    const existingCard = await this.getCardById(id);
     
-    if (!card) {
+    if (!existingCard) {
       throw new Error(`Card with id ${id} not found`);
     }
 
-    const updatedCard: Card = {
-      ...card,
+    const updatedCard = {
+      ...existingCard,
       ...updates,
       updatedAt: new Date(),
     };
 
     await db.put('cards', updatedCard);
     return updatedCard;
+  }
+
+  /**
+   * 重置卡片复习进度
+   */
+  async resetCardProgress(cardId: number): Promise<void> {
+    const db = this.ensureDatabase();
+    const card = await this.getCardById(cardId);
+    
+    if (!card) {
+      throw new Error(`Card with id ${cardId} not found`);
+    }
+
+    // Reset card to initial state
+    const resetCard = {
+      ...card,
+      state: 'New' as const,
+      due: new Date(),
+      stability: 0,
+      difficulty: 0,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      lastReview: undefined,
+      updatedAt: new Date(),
+    };
+
+    await db.put('cards', resetCard);
+    
+    // Optionally, remove review logs for this card
+    const tx = db.transaction(['reviewLogs'], 'readwrite');
+    const reviewLogsStore = tx.objectStore('reviewLogs');
+    const index = reviewLogsStore.index('cardId');
+    
+    for await (const cursor of index.iterate(cardId)) {
+      await cursor.delete();
+    }
+    
+    await tx.done;
   }
 
   // ==================== 复习日志管理 ====================

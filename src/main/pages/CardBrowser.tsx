@@ -10,7 +10,8 @@ import {
   Edit3,
   Trash2,
   List,
-  Grid
+  Grid,
+  RotateCcw
 } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import { Card, Deck, Note } from '../../shared/types';
@@ -172,6 +173,36 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
     }
   };
 
+  const handleResetSelectedCards = async () => {
+    if (selectedCards.size === 0) {
+      toast.error('请先选择要重置的卡片');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `确定要重置选中的 ${selectedCards.size} 张卡片的复习进度吗？\n\n这将清除这些卡片的所有学习记录，将它们重置为新卡片状态。此操作无法撤销。`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const resetPromises = Array.from(selectedCards).map(cardId => 
+        apiClient.resetCardProgress(cardId)
+      );
+      
+      await Promise.all(resetPromises);
+      
+      toast.success(`成功重置 ${selectedCards.size} 张卡片的复习进度`);
+      
+      // Clear selections and reload data
+      setSelectedCards(new Set());
+      await loadDeckAndCards();
+    } catch (error) {
+      console.error('Failed to reset card progress:', error);
+      toast.error('重置失败，请重试');
+    }
+  };
+
   const handleFilterChange = (filtered: CardWithNote[]) => {
     setFilteredCards(filtered);
     // Clear selections when filter changes
@@ -293,9 +324,19 @@ export const CardBrowser: React.FC<CardBrowserProps> = ({
           </div>
 
           {selectedCards.size > 0 && (
-            <span className="px-3 py-1 bg-accent-100 text-accent-800 rounded-full text-sm">
-              已选择 {selectedCards.size} 张卡片
-            </span>
+            <div className="flex items-center space-x-3">
+              <span className="px-3 py-1 bg-accent-100 text-accent-800 rounded-full text-sm">
+                已选择 {selectedCards.size} 张卡片
+              </span>
+              <button
+                onClick={handleResetSelectedCards}
+                className="flex items-center space-x-2 px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                title="重置选中卡片的复习进度"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>重置进度</span>
+              </button>
+            </div>
           )}
           
           <button

@@ -305,14 +305,16 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
             </div>
             
             <div className="space-y-4">
-              <p className="text-xl font-semibold text-primary-900 leading-relaxed">
-                {chineseText}
-              </p>
+              <div 
+                className="text-xl font-semibold text-primary-900 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: chineseText }}
+              />
               
               {pinyin && (
-                <p className="text-lg text-primary-600 font-medium">
-                  {pinyin}
-                </p>
+                <div 
+                  className="text-lg text-primary-600 font-medium"
+                  dangerouslySetInnerHTML={{ __html: pinyin }}
+                />
               )}
             </div>
 
@@ -374,30 +376,44 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
           {/* 问题回顾 */}
           <div className="card-industrial p-6 bg-primary-25 border border-primary-200">
             <h4 className="text-sm font-medium text-primary-600 mb-2">原文</h4>
-            <p className="text-xl font-semibold text-primary-900">{chineseText}</p>
+            <div 
+              className="text-xl font-semibold text-primary-900"
+              dangerouslySetInnerHTML={{ __html: chineseText }}
+            />
             {pinyin && (
-              <p className="text-md text-primary-600 mt-1">{pinyin}</p>
+              <div 
+                className="text-md text-primary-600 mt-1"
+                dangerouslySetInnerHTML={{ __html: pinyin }}
+              />
             )}
           </div>
 
           {/* 标准答案 */}
           <div className="card-industrial p-6 bg-accent-25 border border-accent-200">
             <h4 className="text-sm font-medium text-accent-700 mb-2">参考翻译</h4>
-            <p className="text-xl font-semibold text-accent-900">{englishText}</p>
+            <div 
+              className="text-xl font-semibold text-accent-900"
+              dangerouslySetInnerHTML={{ __html: englishText }}
+            />
             
             {notes && (
               <div className="mt-4 p-3 bg-accent-50 rounded-lg">
                 <h5 className="text-sm font-medium text-accent-700 mb-1">学习笔记</h5>
-                <p className="text-sm text-accent-800">{notes}</p>
+                <div 
+                  className="text-sm text-accent-800"
+                  dangerouslySetInnerHTML={{ __html: notes }}
+                />
               </div>
             )}
           </div>
 
           {/* 评分按钮 */}
           <div className="card-industrial p-6">
-            <h4 className="text-center text-lg font-semibold text-primary-900 mb-6">
-              请根据你的回答情况评分
-            </h4>
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-primary-900">
+                请根据你的回答情况评分
+              </h4>
+            </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <button

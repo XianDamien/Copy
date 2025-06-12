@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
 import { Cog, Home, BookOpen, BarChart3, Settings } from 'lucide-react';
@@ -6,6 +6,8 @@ import { DeckList } from './pages/DeckList';
 import { NoteEditor } from './pages/NoteEditor';
 import { Review } from './pages/Review';
 import { CardBrowser } from './pages/CardBrowser';
+import { SettingsPage } from './pages/SettingsPage';
+
 import '../shared/styles/globals.css';
 
 type Page = 'home' | 'notes' | 'review' | 'stats' | 'settings' | 'cardBrowser';
@@ -14,6 +16,15 @@ const MainApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null); // Will be used for note creation
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null); // For note editing
+
+  // Handle URL parameters for direct page access
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = urlParams.get('page');
+    if (page === 'settings') {
+      setCurrentPage('settings');
+    }
+  }, []);
 
   const handleDeckSelect = (deckId: number) => {
     setSelectedDeckId(deckId);
@@ -115,13 +126,8 @@ const MainApp: React.FC = () => {
           </div>
         );
       case 'settings':
-        return (
-          <div className="text-center py-12">
-            <Settings className="w-16 h-16 mx-auto text-primary-400 mb-4" />
-            <h3 className="text-lg font-medium text-primary-900 mb-2">设置</h3>
-            <p className="text-primary-600">即将推出...</p>
-          </div>
-        );
+        return <SettingsPage />;
+
       default:
         return <DeckList onDeckSelect={handleDeckSelect} />;
     }
@@ -207,6 +213,7 @@ const MainApp: React.FC = () => {
                 <Settings className="w-4 h-4" />
                 <span>设置</span>
               </button>
+
             </nav>
           </div>
         </div>

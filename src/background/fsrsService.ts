@@ -19,9 +19,11 @@ import type {
   CardState,
   LearningProgress,
   StudySchedule,
-  ReviewResult
+  ReviewResult,
+  UserSettings
 } from '../shared/types';
 import { DEFAULT_FSRS_CONFIG } from '../shared/types';
+import { getSettings, addSettingsChangeListener } from '../shared/utils/settingsService';
 
 /**
  * FSRS算法服务类
@@ -29,10 +31,37 @@ import { DEFAULT_FSRS_CONFIG } from '../shared/types';
 export class FSRSService {
   private fsrsInstance: FSRS;
   private config: FSRSConfig;
+  private userSettings: UserSettings = {
+    learningSteps: '1 10',
+    relearningSteps: '10',
+    dailyNewCardsLimit: 20,
+    dailyReviewLimit: 200,
+  };
 
   constructor() {
     this.config = { ...DEFAULT_FSRS_CONFIG };
     this.fsrsInstance = this.createFSRSInstance(this.config);
+    
+    // Initialize user settings and listen for changes
+    this.initializeUserSettings();
+  }
+
+  /**
+   * Initialize user settings and listen for changes
+   */
+  private async initializeUserSettings(): Promise<void> {
+    try {
+      this.userSettings = await getSettings();
+      
+      // Listen for settings changes
+      addSettingsChangeListener((changes) => {
+        this.userSettings = { ...this.userSettings, ...changes };
+        console.log('FSRS service updated with new settings:', this.userSettings);
+      });
+    } catch (error) {
+      console.error('Failed to initialize user settings:', error);
+      // Use defaults if settings fail to load
+    }
   }
 
   /**

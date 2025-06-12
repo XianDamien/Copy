@@ -391,8 +391,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ deckId, noteId, noteType
                   className="w-full"
                   minHeight="h-32"
                 />
-              </div>
             </div>
+          </div>
 
             {/* Save Button */}
             <div className="px-6 py-4 bg-primary-50 border-t border-primary-200 flex justify-end">
