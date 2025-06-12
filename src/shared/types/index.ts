@@ -101,6 +101,7 @@ export interface Card {
   reps: number;
   lapses: number;
   lastReview?: Date;
+  learningStep: number; // Task-driven mode: 0=task pending, 1=task complete. Traditional mode: tracks step index
   createdAt: Date;
   updatedAt: Date;
 }
@@ -199,6 +200,7 @@ export interface UserSettings {
   relearningSteps: string;    // e.g., "10" for 10m
   dailyNewCardsLimit: number; // e.g., 20
   dailyReviewLimit: number;   // e.g., 200
+  enableTraditionalLearningSteps: boolean; // false = task-driven mode, true = traditional Anki-style steps
 }
 
 // Default values for user settings
@@ -207,6 +209,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   relearningSteps: '10',
   dailyNewCardsLimit: 20,
   dailyReviewLimit: 200,
+  enableTraditionalLearningSteps: false, // Default to task-driven learning
 };
 
 // ==================== API 相关类型 ====================

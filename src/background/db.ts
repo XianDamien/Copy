@@ -16,7 +16,7 @@ import { DEFAULT_FSRS_CONFIG } from '../shared/types';
 
 // 数据库配置
 const DB_NAME = 'LanGearDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export class DatabaseService {
   private db: IDBPDatabase<LanGearDBSchema> | null = null;
@@ -70,6 +70,22 @@ export class DatabaseService {
             if (!cardStore.indexNames.contains('deckId-due')) {
               cardStore.createIndex('deckId-due', ['deckId', 'due'], { unique: false });
             }
+          }
+
+          // 升级到版本3：添加learningStep字段到现有卡片
+          if (oldVersion < 3) {
+            const cardStore = transaction!.objectStore('cards');
+            // 为现有卡片添加learningStep字段，默认值为0
+            cardStore.openCursor().then(function addLearningStep(cursor) {
+              if (cursor) {
+                const card = cursor.value;
+                if (card.learningStep === undefined) {
+                  card.learningStep = 0; // 默认值：任务待完成状态
+                  cursor.update(card);
+                }
+                cursor.continue().then(addLearningStep);
+              }
+            });
           }
 
           // 创建复习日志表
@@ -347,6 +363,7 @@ export class DatabaseService {
           scheduledDays: 0,
           reps: 0,
           lapses: 0,
+          learningStep: 0, // Initialize with task pending state
           createdAt: now,
           updatedAt: now,
         });
@@ -366,6 +383,7 @@ export class DatabaseService {
           scheduledDays: 0,
           reps: 0,
           lapses: 0,
+          learningStep: 0, // Initialize with task pending state
           createdAt: now,
           updatedAt: now,
         });
@@ -589,6 +607,66 @@ export class DatabaseService {
     }
     
     await tx.done;
+  }
+
+  /**
+   * Reset all cards in a deck (or all cards if deckId is null)
+   * This provides bulk reset functionality for the scheduler service
+   */
+  async resetCardsInDeck(deckId: number | null): Promise<number> {
+    const db = this.ensureDatabase();
+    let resetCount = 0;
+
+    try {
+      const tx = db.transaction(['cards', 'reviewLogs'], 'readwrite');
+      const cardsStore = tx.objectStore('cards');
+      const reviewLogsStore = tx.objectStore('reviewLogs');
+      
+      // Get cards to reset
+      let cardsToReset: Card[];
+      if (deckId === null) {
+        // Reset all cards
+        cardsToReset = await cardsStore.getAll();
+      } else {
+        // Reset cards in specific deck
+        cardsToReset = await cardsStore.index('deckId').getAll(deckId);
+      }
+
+      console.log(`Resetting ${cardsToReset.length} cards in deck ${deckId || 'all decks'}`);
+
+      // Reset each card
+      for (const card of cardsToReset) {
+        const resetCard = {
+          ...card,
+          state: 'New' as const,
+          due: new Date(),
+          stability: 0,
+          difficulty: 0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          lastReview: undefined,
+          updatedAt: new Date(),
+        };
+
+        await cardsStore.put(resetCard);
+        resetCount++;
+
+        // Remove review logs for this card
+        const reviewLogIndex = reviewLogsStore.index('cardId');
+        for await (const cursor of reviewLogIndex.iterate(card.id)) {
+          await cursor.delete();
+        }
+      }
+
+      await tx.done;
+      console.log(`Successfully reset ${resetCount} cards`);
+      return resetCount;
+    } catch (error) {
+      console.error('Error resetting cards in deck:', error);
+      throw new Error(`Failed to reset cards: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // ==================== 复习日志管理 ====================

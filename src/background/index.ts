@@ -1,5 +1,6 @@
 import { dbService } from './db';
 import { FSRSService } from './fsrsService';
+import { schedulerService } from './schedulerService';
 import type { ChromeMessage, ApiResponse } from '../shared/types';
 
 // 初始化服务实例
@@ -342,6 +343,19 @@ class BackgroundService {
         case 'DELETE_AUDIO':
           // 音频删除功能暂未实现
           return { success: false, error: 'Audio deletion not implemented yet' };
+
+        // ==================== 队列操作 ====================
+        case 'BUILD_QUEUE':
+          const queueCards = await schedulerService.buildQueue(
+            message.payload?.deckId,
+            message.payload?.limit
+          );
+          return { success: true, data: queueCards };
+
+        case 'RESET_CARDS_IN_DECK':
+          const resetCount = await schedulerService.resetCardsInDeck(message.payload.deckId);
+          await this.updateBadge();
+          return { success: true, data: resetCount };
 
         default:
           console.warn(`Unknown message type: ${message.type}`);

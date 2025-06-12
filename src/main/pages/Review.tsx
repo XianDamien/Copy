@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Minus, Plus, Edit3, SkipForward } from 'lucide-react';
+import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Minus, Plus, Edit3, SkipForward, Send } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
-import type { Card, Note, AppRating, Deck } from '../../shared/types';
+import type { Card, Note, AppRating, Deck, UserSettings } from '../../shared/types';
+import { DEFAULT_USER_SETTINGS } from '../../shared/types';
+import { getSettings } from '../../shared/utils/settingsService';
+import toast from 'react-hot-toast';
 
 interface ReviewProps {
   deckId?: number | null;
@@ -22,17 +25,30 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
   const [cards, setCards] = useState<CardWithNote[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCards, setReviewedCards] = useState(0);
-
+  const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [taskInput, setTaskInput] = useState(''); // For task-driven mode input
 
   const apiClient = new ApiClient();
 
   useEffect(() => {
+    // Load user settings
+    const loadUserSettings = async () => {
+      try {
+        const settings = await getSettings();
+        setUserSettings(settings);
+      } catch (error) {
+        console.error('Failed to load user settings:', error);
+      }
+    };
+
+    loadUserSettings();
+
     if (deckId) {
       // If deckId is provided, start review immediately for that deck
       startReview(deckId);
     } else {
       // Otherwise, load decks for selection screen
-    loadDecks();
+      loadDecks();
     }
   }, [deckId]);
 
@@ -94,8 +110,8 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
     setSelectedDeckId(deckId);
 
     try {
-      // 获取到期卡片
-      const dueCards = await apiClient.getDueCards(deckId || undefined, 20);
+      // Phase 2.2: Use new scheduler service instead of getDueCards
+      const dueCards = await apiClient.buildQueue(deckId, 20);
       
       if (dueCards.length === 0) {
         setReviewState('no-cards');
@@ -165,6 +181,28 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
     setReviewedCards(0);
   };
 
+  /**
+   * Handle resetting card progress for a deck or all cards
+   * Phase 2.2: New bulk reset functionality
+   */
+  const handleResetDeckCards = async (deckId: number | null) => {
+    const deckName = deckId ? decks.find(d => d.id === deckId)?.name || `牌组 ${deckId}` : '所有牌组';
+    
+    const confirmed = window.confirm(
+      `确定要重置 ${deckName} 中所有卡片的复习进度吗？\n\n这将清除这些卡片的所有学习记录，将它们重置为新卡片状态。此操作无法撤销。`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const resetCount = await apiClient.resetCardsInDeck(deckId);
+      toast.success(`成功重置 ${deckName} 中的 ${resetCount} 张卡片`);
+    } catch (error) {
+      console.error('Failed to reset cards:', error);
+      toast.error('重置失败，请重试');
+    }
+  };
+
   const handleEditCard = () => {
     const currentCard = getCurrentCard();
     if (currentCard && onEditNote) {
@@ -175,6 +213,79 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
   const handleSkipCard = async () => {
     // Skip card by marking as 'Again' but continuing without user interaction
     await submitRating('Again');
+  };
+
+  /**
+   * Determine if current card should show task completion interface
+   */
+  const shouldShowTaskInterface = () => {
+    const currentCard = getCurrentCard();
+    if (!currentCard) return false;
+    
+    // Show task interface if:
+    // 1. Task-driven mode is enabled (default)
+    // 2. Card is in New or Relearning state (needs task completion)
+    return !userSettings.enableTraditionalLearningSteps && 
+           (currentCard.state === 'New' || currentCard.state === 'Relearning');
+  };
+
+  /**
+   * Handle task completion submission
+   */
+  const handleTaskCompletion = async () => {
+    if (!taskInput.trim()) {
+      toast.error('请输入您的翻译或复述');
+      return;
+    }
+
+    const currentCard = getCurrentCard();
+    if (!currentCard) return;
+
+    try {
+      // In task-driven mode, successful task completion = Good rating
+      await apiClient.reviewCard(currentCard.id, 3); // Good = 3
+      
+      setReviewedCards(prev => prev + 1);
+      setTaskInput(''); // Clear input for next card
+
+      // Move to next card or complete review
+      if (currentCardIndex < cards.length - 1) {
+        setCurrentCardIndex(prev => prev + 1);
+        setReviewState('question');
+      } else {
+        setReviewState('completed');
+      }
+    } catch (error) {
+      console.error('Failed to submit task completion:', error);
+      toast.error('提交失败，请重试');
+    }
+  };
+
+  /**
+   * Handle task failure (user couldn't complete the task)
+   */
+  const handleTaskFailure = async () => {
+    const currentCard = getCurrentCard();
+    if (!currentCard) return;
+
+    try {
+      // Task failure = Again rating
+      await apiClient.reviewCard(currentCard.id, 1); // Again = 1
+      
+      setReviewedCards(prev => prev + 1);
+      setTaskInput(''); // Clear input for next card
+
+      // Move to next card or complete review
+      if (currentCardIndex < cards.length - 1) {
+        setCurrentCardIndex(prev => prev + 1);
+        setReviewState('question');
+      } else {
+        setReviewState('completed');
+      }
+    } catch (error) {
+      console.error('Failed to submit task failure:', error);
+      toast.error('提交失败，请重试');
+    }
   };
 
   const getCurrentCard = () => cards[currentCardIndex];
@@ -198,15 +309,30 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
       </div>
 
       {/* 复习所有卡片选项 */}
-      <div className="card-industrial p-6 hover:shadow-lg transition-shadow cursor-pointer"
-           onClick={() => startReview(null)}>
+      <div className="card-industrial p-6 hover:shadow-lg transition-shadow">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-semibold text-primary-900 mb-2">复习所有到期卡片</h3>
             <p className="text-primary-600">复习所有牌组中的到期卡片</p>
           </div>
-          <div className="text-accent-600">
-            <CheckCircle className="w-8 h-8" />
+          <div className="flex items-center space-x-3">
+            {/* Reset Button */}
+            <button
+              onClick={() => handleResetDeckCards(null)}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
+              title="重置所有卡片进度"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="text-sm font-medium">重置进度</span>
+            </button>
+            {/* Review Button */}
+            <button
+              onClick={() => startReview(null)}
+              className="flex items-center space-x-2 px-6 py-2 bg-accent-600 text-white rounded-md hover:bg-accent-700 transition-colors"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-medium">开始复习</span>
+            </button>
           </div>
         </div>
       </div>
@@ -218,15 +344,35 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
           {decks.map(deck => (
             <div 
               key={deck.id}
-              className="card-industrial p-4 hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => startReview(deck.id)}
+              className="card-industrial p-4 hover:shadow-lg transition-shadow"
             >
               <h4 className="font-semibold text-primary-900 mb-1">{deck.name}</h4>
               {deck.description && (
-                <p className="text-sm text-primary-600 mb-2">{deck.description}</p>
+                <p className="text-sm text-primary-600 mb-3">{deck.description}</p>
               )}
-              <div className="text-xs text-primary-500">
-                点击开始复习此牌组
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-primary-500">
+                  点击按钮开始复习此牌组
+                </div>
+                <div className="flex items-center space-x-2">
+                  {/* Reset Button for Deck */}
+                  <button
+                    onClick={() => handleResetDeckCards(deck.id)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-red-50 text-red-600 rounded text-xs hover:bg-red-100 transition-colors"
+                    title={`重置 ${deck.name} 的所有卡片进度`}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>重置</span>
+                  </button>
+                  {/* Review Button for Deck */}
+                  <button
+                    onClick={() => startReview(deck.id)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-accent-600 text-white rounded text-xs hover:bg-accent-700 transition-colors"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    <span>复习</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -409,53 +555,116 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
 
           {/* 评分按钮 */}
           <div className="card-industrial p-6">
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-primary-900">
-                请根据你的回答情况评分
-              </h4>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <button
-                onClick={() => submitRating('Again')}
-                className="flex flex-col items-center p-4 rounded-lg border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-colors"
-              >
-                <XCircle className="w-8 h-8 text-red-500 mb-2" />
-                <span className="font-medium text-red-700">Again</span>
-                <span className="text-xs text-red-600 text-center">完全不会</span>
-              </button>
+            {shouldShowTaskInterface() ? (
+              // Task-Driven Learning Interface
+              <div>
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-primary-900 mb-2">
+                    完成翻译任务
+                  </h4>
+                  <p className="text-sm text-primary-600">
+                    请在下方输入您的翻译或复述，完成后点击提交。如果无法完成，可以选择"无法完成"。
+                  </p>
+                </div>
 
-              <button
-                onClick={() => submitRating('Hard')}
-                className="flex flex-col items-center p-4 rounded-lg border-2 border-yellow-200 hover:border-yellow-400 hover:bg-yellow-50 transition-colors"
-              >
-                <Minus className="w-8 h-8 text-yellow-500 mb-2" />
-                <span className="font-medium text-yellow-700">Hard</span>
-                <span className="text-xs text-yellow-600 text-center">困难</span>
-              </button>
+                {/* Task Input Area */}
+                <div className="mb-6">
+                  <textarea
+                    value={taskInput}
+                    onChange={(e) => setTaskInput(e.target.value)}
+                    placeholder="请输入您的翻译或复述..."
+                    className="w-full h-32 px-4 py-3 border-2 border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none"
+                    autoFocus
+                  />
+                </div>
 
-              <button
-                onClick={() => submitRating('Good')}
-                className="flex flex-col items-center p-4 rounded-lg border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-colors"
-              >
-                <CheckCircle className="w-8 h-8 text-green-500 mb-2" />
-                <span className="font-medium text-green-700">Good</span>
-                <span className="text-xs text-green-600 text-center">良好</span>
-              </button>
+                {/* Task Action Buttons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={handleTaskCompletion}
+                    disabled={!taskInput.trim()}
+                    className="flex items-center justify-center space-x-2 p-4 rounded-lg border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-6 h-6 text-green-500" />
+                    <div className="text-center">
+                      <div className="font-medium text-green-700">提交翻译</div>
+                      <div className="text-xs text-green-600">任务完成，卡片将进入复习阶段</div>
+                    </div>
+                  </button>
 
-              <button
-                onClick={() => submitRating('Easy')}
-                className="flex flex-col items-center p-4 rounded-lg border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
-              >
-                <Plus className="w-8 h-8 text-blue-500 mb-2" />
-                <span className="font-medium text-blue-700">Easy</span>
-                <span className="text-xs text-blue-600 text-center">简单</span>
-              </button>
-            </div>
+                  <button
+                    onClick={handleTaskFailure}
+                    className="flex items-center justify-center space-x-2 p-4 rounded-lg border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-colors"
+                  >
+                    <XCircle className="w-6 h-6 text-red-500" />
+                    <div className="text-center">
+                      <div className="font-medium text-red-700">无法完成</div>
+                      <div className="text-xs text-red-600">稍后重新尝试此任务</div>
+                    </div>
+                  </button>
+                </div>
 
-            <div className="mt-4 text-xs text-primary-500 text-center">
-              评分会影响下次复习的时间安排 (快捷键: 1-4)
-            </div>
+                <div className="mt-4 text-xs text-primary-500 text-center">
+                  任务驱动学习模式：通过完成翻译任务来掌握语言
+                </div>
+              </div>
+            ) : (
+              // Traditional Rating Interface
+              <div>
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-primary-900">
+                    请根据你的回答情况评分
+                  </h4>
+                  {userSettings.enableTraditionalLearningSteps && (
+                    <p className="text-sm text-primary-600 mt-1">
+                      传统学习模式：根据记忆难度选择评分
+                    </p>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <button
+                    onClick={() => submitRating('Again')}
+                    className="flex flex-col items-center p-4 rounded-lg border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-colors"
+                  >
+                    <XCircle className="w-8 h-8 text-red-500 mb-2" />
+                    <span className="font-medium text-red-700">Again</span>
+                    <span className="text-xs text-red-600 text-center">完全不会</span>
+                  </button>
+
+                  <button
+                    onClick={() => submitRating('Hard')}
+                    className="flex flex-col items-center p-4 rounded-lg border-2 border-yellow-200 hover:border-yellow-400 hover:bg-yellow-50 transition-colors"
+                  >
+                    <Minus className="w-8 h-8 text-yellow-500 mb-2" />
+                    <span className="font-medium text-yellow-700">Hard</span>
+                    <span className="text-xs text-yellow-600 text-center">困难</span>
+                  </button>
+
+                  <button
+                    onClick={() => submitRating('Good')}
+                    className="flex flex-col items-center p-4 rounded-lg border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-colors"
+                  >
+                    <CheckCircle className="w-8 h-8 text-green-500 mb-2" />
+                    <span className="font-medium text-green-700">Good</span>
+                    <span className="text-xs text-green-600 text-center">良好</span>
+                  </button>
+
+                  <button
+                    onClick={() => submitRating('Easy')}
+                    className="flex flex-col items-center p-4 rounded-lg border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  >
+                    <Plus className="w-8 h-8 text-blue-500 mb-2" />
+                    <span className="font-medium text-blue-700">Easy</span>
+                    <span className="text-xs text-blue-600 text-center">简单</span>
+                  </button>
+                </div>
+
+                <div className="mt-4 text-xs text-primary-500 text-center">
+                  评分会影响下次复习的时间安排 (快捷键: 1-4)
+                </div>
+              </div>
+            )}
 
             {/* 额外操作按钮 */}
             <div className="mt-6 pt-4 border-t border-primary-200">

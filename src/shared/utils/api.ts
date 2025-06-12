@@ -178,6 +178,20 @@ export class ApiClient {
     return this.sendMessage('RESET_CARD_PROGRESS', { cardId });
   }
 
+  /**
+   * 构建复习队列 (Phase 2.2 Scheduler Service)
+   */
+  async buildQueue(deckId: number | null, limit?: number): Promise<any[]> {
+    return this.sendMessage('BUILD_QUEUE', { deckId, limit });
+  }
+
+  /**
+   * 重置牌组中的所有卡片进度 (Phase 2.2 Bulk Reset)
+   */
+  async resetCardsInDeck(deckId: number | null): Promise<number> {
+    return this.sendMessage('RESET_CARDS_IN_DECK', { deckId });
+  }
+
   // ==================== FSRS配置 ====================
 
   /**

@@ -32,7 +32,7 @@ export function SettingsPage() {
   }, []);
 
   // Handle input changes
-  const handleInputChange = (field: keyof UserSettings, value: string | number) => {
+  const handleInputChange = (field: keyof UserSettings, value: string | number | boolean) => {
     setSettings(prev => ({
       ...prev,
       [field]: value,
@@ -115,39 +115,104 @@ export function SettingsPage() {
         )}
 
         <div className="space-y-6">
-          {/* Learning Steps */}
-          <div>
+          {/* Learning Mode Selection */}
+          <div className="border-b border-gray-200 pb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Learning Mode</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <input
+                  id="taskDrivenMode"
+                  type="radio"
+                  name="learningMode"
+                  checked={!settings.enableTraditionalLearningSteps}
+                  onChange={() => handleInputChange('enableTraditionalLearningSteps', false)}
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <div className="flex-1">
+                  <label htmlFor="taskDrivenMode" className="block text-sm font-medium text-gray-700">
+                    Task-Driven Learning (Recommended)
+                  </label>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Learn by completing translation/retelling tasks. Cards graduate immediately upon successful task completion, then use FSRS for long-term review scheduling.
+                  </p>
+                  <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    <strong>How it works:</strong> Complete a translation → Card graduates to review phase → FSRS handles optimal spacing
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3">
+                <input
+                  id="traditionalMode"
+                  type="radio"
+                  name="learningMode"
+                  checked={settings.enableTraditionalLearningSteps}
+                  onChange={() => handleInputChange('enableTraditionalLearningSteps', true)}
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <div className="flex-1">
+                  <label htmlFor="traditionalMode" className="block text-sm font-medium text-gray-700">
+                    Traditional Learning Steps (Advanced)
+                  </label>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Use Anki-style time-based learning steps. Cards progress through configured intervals (e.g., 1min → 10min) before graduating.
+                  </p>
+                  <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                    <strong>Note:</strong> This mode uses traditional spaced repetition timing instead of task completion
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Learning Steps - Conditional Display */}
+          <div className={settings.enableTraditionalLearningSteps ? '' : 'opacity-50 pointer-events-none'}>
             <label htmlFor="learningSteps" className="block text-sm font-medium text-gray-700 mb-2">
               Learning Steps (minutes)
+              {!settings.enableTraditionalLearningSteps && (
+                <span className="ml-2 text-xs text-gray-400">(Disabled in Task-Driven Mode)</span>
+              )}
             </label>
             <input
               id="learningSteps"
               type="text"
               value={settings.learningSteps}
               onChange={(e) => handleInputChange('learningSteps', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!settings.enableTraditionalLearningSteps}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
               placeholder="e.g., 1 10"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Space-separated intervals in minutes for learning new cards (e.g., "1 10" for 1 minute and 10 minutes)
+              {settings.enableTraditionalLearningSteps 
+                ? "Space-separated intervals in minutes for learning new cards (e.g., \"1 10\" for 1 minute and 10 minutes)"
+                : "In Task-Driven Mode, cards graduate immediately upon task completion"
+              }
             </p>
           </div>
 
-          {/* Relearning Steps */}
-          <div>
+          {/* Relearning Steps - Conditional Display */}
+          <div className={settings.enableTraditionalLearningSteps ? '' : 'opacity-50 pointer-events-none'}>
             <label htmlFor="relearningSteps" className="block text-sm font-medium text-gray-700 mb-2">
               Relearning Steps (minutes)
+              {!settings.enableTraditionalLearningSteps && (
+                <span className="ml-2 text-xs text-gray-400">(Disabled in Task-Driven Mode)</span>
+              )}
             </label>
             <input
               id="relearningSteps"
               type="text"
               value={settings.relearningSteps}
               onChange={(e) => handleInputChange('relearningSteps', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!settings.enableTraditionalLearningSteps}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
               placeholder="e.g., 10"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Space-separated intervals in minutes for relearning failed cards (e.g., "10" for 10 minutes)
+              {settings.enableTraditionalLearningSteps
+                ? "Space-separated intervals in minutes for relearning failed cards (e.g., \"10\" for 10 minutes)"
+                : "In Task-Driven Mode, failed cards return to task phase for re-completion"
+              }
             </p>
           </div>
 
@@ -212,12 +277,32 @@ export function SettingsPage() {
 
       {/* Info Section */}
       <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <h2 className="text-lg font-semibold text-blue-900 mb-3">About These Settings</h2>
-        <div className="space-y-2 text-sm text-blue-800">
-          <p><strong>Learning Steps:</strong> Define the intervals for new cards. When you rate a new card as "Good", it will be shown again at these intervals.</p>
-          <p><strong>Relearning Steps:</strong> Define the intervals for cards you got wrong. Failed cards will be shown again at these intervals.</p>
-          <p><strong>Daily Limits:</strong> Control how many cards you study each day. Set limits that match your available study time.</p>
-          <p><strong>Sync:</strong> These settings are synchronized across all your Chrome browsers where you're logged in.</p>
+        <h2 className="text-lg font-semibold text-blue-900 mb-3">About Learning Modes</h2>
+        <div className="space-y-3 text-sm text-blue-800">
+          <div>
+            <p><strong>Task-Driven Learning (Recommended):</strong></p>
+            <ul className="ml-4 mt-1 space-y-1 list-disc">
+              <li>Focus on active language production through translation/retelling tasks</li>
+              <li>Cards graduate immediately upon successful task completion</li>
+              <li>FSRS algorithm handles all long-term review scheduling</li>
+              <li>More efficient and aligned with language learning goals</li>
+            </ul>
+          </div>
+          
+          <div>
+            <p><strong>Traditional Learning Steps (Advanced):</strong></p>
+            <ul className="ml-4 mt-1 space-y-1 list-disc">
+              <li>Uses Anki-style time-based learning intervals (e.g., 1min → 10min)</li>
+              <li>Cards must complete all learning steps before graduating</li>
+              <li>Familiar to users coming from traditional SRS systems</li>
+              <li>Learning/Relearning steps control short-term repetition timing</li>
+            </ul>
+          </div>
+          
+          <div className="pt-2 border-t border-blue-200">
+            <p><strong>Daily Limits:</strong> Control how many cards you study each day, regardless of learning mode.</p>
+            <p><strong>Sync:</strong> These settings are synchronized across all your Chrome browsers where you're logged in.</p>
+          </div>
         </div>
       </div>
     </div>

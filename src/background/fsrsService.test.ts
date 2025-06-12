@@ -32,6 +32,7 @@ describe('FSRSService', () => {
         reps: 0,
         lapses: 0,
         lastReview: undefined,
+        learningStep: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -65,6 +66,7 @@ describe('FSRSService', () => {
         reps: 1,
         lapses: 0,
         lastReview: new Date(),
+        learningStep: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -110,6 +112,7 @@ describe('FSRSService', () => {
         reps: 3,
         lapses: 1,
         lastReview: new Date('2024-01-01'),
+        learningStep: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -180,6 +183,7 @@ describe('FSRSService', () => {
         reps: 0,
         lapses: 0,
         lastReview: undefined,
+        learningStep: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -205,6 +209,7 @@ describe('FSRSService', () => {
         reps: 10,
         lapses: 1,
         lastReview: new Date(),
+        learningStep: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -223,18 +228,21 @@ describe('FSRSService', () => {
           id: 1, noteId: 1, deckId: 1, cardType: 'CtoE', state: 'New',
           due: new Date(), stability: 0, difficulty: 0, elapsedDays: 0,
           scheduledDays: 0, reps: 0, lapses: 0, lastReview: undefined,
+          learningStep: 0,
           createdAt: new Date(), updatedAt: new Date(),
         },
         {
           id: 2, noteId: 2, deckId: 1, cardType: 'CtoE', state: 'Learning',
           due: new Date(), stability: 2, difficulty: 6, elapsedDays: 1,
           scheduledDays: 2, reps: 2, lapses: 0, lastReview: new Date(),
+          learningStep: 1,
           createdAt: new Date(), updatedAt: new Date(),
         },
         {
           id: 3, noteId: 3, deckId: 1, cardType: 'CtoE', state: 'Review',
           due: new Date(), stability: 15, difficulty: 5, elapsedDays: 10,
           scheduledDays: 15, reps: 5, lapses: 1, lastReview: new Date(),
+          learningStep: 1,
           createdAt: new Date(), updatedAt: new Date(),
         },
       ];
@@ -255,6 +263,7 @@ describe('FSRSService', () => {
           due: new Date(Date.now() - 24 * 60 * 60 * 1000), // 昨天到期
           stability: 0, difficulty: 0, elapsedDays: 0,
           scheduledDays: 0, reps: 0, lapses: 0, lastReview: undefined,
+          learningStep: 0,
           createdAt: new Date(), updatedAt: new Date(),
         },
         {
@@ -262,6 +271,7 @@ describe('FSRSService', () => {
           due: new Date(Date.now() + 60 * 60 * 1000), // 1小时后到期
           stability: 2, difficulty: 6, elapsedDays: 1,
           scheduledDays: 2, reps: 2, lapses: 0, lastReview: new Date(),
+          learningStep: 1,
           createdAt: new Date(), updatedAt: new Date(),
         },
       ];
