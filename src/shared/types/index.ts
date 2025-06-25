@@ -201,6 +201,7 @@ export interface UserSettings {
   dailyNewCardsLimit: number; // e.g., 20
   dailyReviewLimit: number;   // e.g., 200
   enableTraditionalLearningSteps: boolean; // false = task-driven mode, true = traditional Anki-style steps
+  geminiApiKey?: string;      // Gemini API key for AI-powered features
 }
 
 // Default values for user settings

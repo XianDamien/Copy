@@ -12,7 +12,7 @@ interface ReviewProps {
   onEditNote?: (noteId: number) => void;
 }
 
-type ReviewState = 'deck-selection' | 'loading' | 'question' | 'answer' | 'completed' | 'no-cards';
+type ReviewState = 'deck-selection' | 'loading' | 'question' | 'answer' | 'completed' | 'no-cards' | 'evaluation';
 
 interface CardWithNote extends Card {
   note: Note;
@@ -26,7 +26,10 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCards, setReviewedCards] = useState(0);
   const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
-  const [taskInput, setTaskInput] = useState(''); // For task-driven mode input
+  const [taskInput, setTaskInput] = useState('');
+  const [cardsForEvaluation, setCardsForEvaluation] = useState<CardWithNote[]>([]);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [evaluationIndex, setEvaluationIndex] = useState(0);
 
   const apiClient = new ApiClient();
 
@@ -179,6 +182,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
     setCards([]);
     setCurrentCardIndex(0);
     setReviewedCards(0);
+    setCardsForEvaluation([]);
   };
 
   /**
@@ -246,14 +250,20 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
       await apiClient.reviewCard(currentCard.id, 3); // Good = 3
       
       setReviewedCards(prev => prev + 1);
+      setCardsForEvaluation(prev => [...prev, currentCard]); // Add to evaluation list
       setTaskInput(''); // Clear input for next card
 
-      // Move to next card or complete review
+      // Move to next card or go to evaluation
       if (currentCardIndex < cards.length - 1) {
         setCurrentCardIndex(prev => prev + 1);
         setReviewState('question');
       } else {
-        setReviewState('completed');
+        // If there are cards to evaluate, go to evaluation; otherwise complete
+        if (cardsForEvaluation.length > 0 || currentCard) {
+          setReviewState('evaluation');
+        } else {
+          setReviewState('completed');
+        }
       }
     } catch (error) {
       console.error('Failed to submit task completion:', error);
@@ -289,6 +299,38 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
   };
 
   const getCurrentCard = () => cards[currentCardIndex];
+
+  const handleShowTranslation = () => {
+    setShowTranslation(true);
+  };
+
+  const handleEvaluationComplete = async (difficulty: 'easy' | 'medium' | 'hard') => {
+    const currentCard = cardsForEvaluation[evaluationIndex];
+    if (!currentCard) return;
+
+    try {
+      // Update card difficulty and schedule next review
+      const interval = difficulty === 'easy' ? 30 : difficulty === 'medium' ? 15 : 5;
+      const nextReview = new Date();
+      nextReview.setMinutes(nextReview.getMinutes() + interval);
+
+      await apiClient.updateCard({
+        ...currentCard,
+        due: nextReview,
+        state: 'Learning'
+      });
+
+      if (evaluationIndex < cardsForEvaluation.length - 1) {
+        setEvaluationIndex(prev => prev + 1);
+        setShowTranslation(false);
+      } else {
+        setReviewState('completed');
+      }
+    } catch (error) {
+      console.error('Failed to update card:', error);
+      toast.error('Failed to save evaluation');
+    }
+  };
 
   const renderDeckSelection = () => (
     <div className="space-y-6">
@@ -696,6 +738,62 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
     );
   };
 
+  const renderEvaluation = () => {
+    const currentCard = cardsForEvaluation[evaluationIndex];
+    if (!currentCard) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Evaluate Your Understanding</h2>
+          <p className="text-gray-600 mb-8">
+            Card {evaluationIndex + 1} of {cardsForEvaluation.length}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+          <div className="text-lg font-medium">{currentCard.note.fields.CtoE?.chinese || '内容加载失败'}</div>
+          
+          {!showTranslation ? (
+            <button
+              onClick={handleShowTranslation}
+              className="w-full py-2 text-blue-600 hover:text-blue-800 focus:outline-none"
+            >
+              Show Translation
+            </button>
+          ) : (
+            <div className="text-gray-700 pt-4 border-t">
+              {currentCard.note.fields.CtoE?.english || '内容加载失败'}
+            </div>
+          )}
+
+          {showTranslation && (
+            <div className="flex justify-center space-x-4 pt-6">
+              <button
+                onClick={() => handleEvaluationComplete('hard')}
+                className="px-6 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+              >
+                Hard
+              </button>
+              <button
+                onClick={() => handleEvaluationComplete('medium')}
+                className="px-6 py-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200"
+              >
+                Medium
+              </button>
+              <button
+                onClick={() => handleEvaluationComplete('easy')}
+                className="px-6 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200"
+              >
+                Easy
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderCompleted = () => (
     <div className="text-center py-16">
       <CheckCircle className="w-20 h-20 mx-auto text-green-500 mb-6" />
@@ -726,14 +824,30 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack, onEditNote }) =>
     </div>
   );
 
+  const renderCurrentState = () => {
+    switch (reviewState) {
+      case 'deck-selection':
+        return renderDeckSelection();
+      case 'loading':
+        return renderLoading();
+      case 'question':
+        return renderQuestion();
+      case 'answer':
+        return renderAnswer();
+      case 'evaluation':
+        return renderEvaluation();
+      case 'completed':
+        return renderCompleted();
+      case 'no-cards':
+        return renderNoCards();
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {reviewState === 'deck-selection' && renderDeckSelection()}
-      {reviewState === 'loading' && renderLoading()}
-      {reviewState === 'no-cards' && renderNoCards()}
-      {reviewState === 'question' && renderQuestion()}
-      {reviewState === 'answer' && renderAnswer()}
-      {reviewState === 'completed' && renderCompleted()}
+      {renderCurrentState()}
     </div>
   );
 }; 

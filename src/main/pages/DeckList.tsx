@@ -14,9 +14,10 @@ interface DeckListProps {
   onDeckSelect?: (deckId: number) => void;
   onCreateNote?: (deckId: number) => void;
   onStartReview?: (deckId: number) => void;
+  onBulkImport?: () => void;
 }
 
-export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, onStartReview }) => {
+export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, onStartReview, onBulkImport }) => {
   const [decks, setDecks] = useState<DeckWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -228,12 +229,20 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
           </button>
           
           <button
-            onClick={openCreateModal}
-            className="btn-accent flex items-center space-x-2"
+            onClick={onBulkImport}
+            className="btn-secondary flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
-            <span>创建牌组</span>
+            <span>批量导入</span>
           </button>
+        
+        <button
+          onClick={openCreateModal}
+          className="btn-accent flex items-center space-x-2"
+        >
+          <Plus className="w-4 h-4" />
+          <span>创建牌组</span>
+        </button>
         </div>
       </div>
 

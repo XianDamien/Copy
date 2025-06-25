@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
 import { Cog, Home, BookOpen, BarChart3, Settings } from 'lucide-react';
+import { StagewiseToolbar } from '@stagewise/toolbar-react';
+import { ReactPlugin } from '@stagewise-plugins/react';
 import { DeckList } from './pages/DeckList';
 import { NoteEditor } from './pages/NoteEditor';
 import { Review } from './pages/Review';
 import { CardBrowser } from './pages/CardBrowser';
 import { SettingsPage } from './pages/SettingsPage';
+import { BulkImportPage } from './pages/BulkImportPage';
 
 import '../shared/styles/globals.css';
 
-type Page = 'home' | 'notes' | 'review' | 'stats' | 'settings' | 'cardBrowser';
+type Page = 'home' | 'notes' | 'review' | 'stats' | 'settings' | 'cardBrowser' | 'bulkImport';
 
 const MainApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -49,6 +52,10 @@ const MainApp: React.FC = () => {
     setCurrentPage('notes');
   };
 
+  const handleBulkImport = () => {
+    setCurrentPage('bulkImport');
+  };
+
   const handleNavigation = (page: Page) => {
     setCurrentPage(page);
     if (page === 'home' || page === 'review') {
@@ -65,7 +72,9 @@ const MainApp: React.FC = () => {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'home':
-        return <DeckList onDeckSelect={handleDeckSelect} onCreateNote={handleCreateNote} onStartReview={handleStartLearning} />;
+        return <DeckList onDeckSelect={handleDeckSelect} onCreateNote={handleCreateNote} onStartReview={handleStartLearning} onBulkImport={handleBulkImport} />;
+      case 'bulkImport':
+        return <BulkImportPage onBack={() => handleNavigation('home')} onImportComplete={(deckId: number) => handleDeckSelect(deckId)} />;
       case 'cardBrowser':
         return selectedDeckId ? (
           <CardBrowser 
@@ -135,6 +144,11 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-primary-50">
+      <StagewiseToolbar 
+        config={{
+          plugins: [ReactPlugin]
+        }}
+      />
       <Toaster
         position="top-right"
         toastOptions={{
@@ -160,7 +174,7 @@ const MainApp: React.FC = () => {
         }}
       />
       {/* 顶部导航栏 */}
-      <header className="bg-primary-700 text-white shadow-industrial">
+      <header className="bg-primary-700 text-white shadow-industrial-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">

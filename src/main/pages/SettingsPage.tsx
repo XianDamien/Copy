@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { UserSettings, DEFAULT_USER_SETTINGS } from '../../shared/types/index';
 import { getSettings, saveSettings, validateSettings } from '../../shared/utils/settingsService';
+import { apiClient } from '../../shared/utils/api';
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
@@ -13,6 +14,8 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [verifyingApiKey, setVerifyingApiKey] = useState(false);
+  const [apiKeyValid, setApiKeyValid] = useState<boolean | null>(null);
 
   // Load settings on component mount
   useEffect(() => {
@@ -41,6 +44,11 @@ export function SettingsPage() {
     // Clear success message when user makes changes
     if (successMessage) {
       setSuccessMessage('');
+    }
+    
+    // Reset API key validation when user changes the key
+    if (field === 'geminiApiKey') {
+      setApiKeyValid(null);
     }
   };
 
@@ -80,6 +88,35 @@ export function SettingsPage() {
     setSettings(DEFAULT_USER_SETTINGS);
     setErrors([]);
     setSuccessMessage('');
+    setApiKeyValid(null);
+  };
+
+  // Handle API key verification
+  const handleVerifyApiKey = async () => {
+    if (!settings.geminiApiKey?.trim()) {
+      setErrors(['请先输入API密钥']);
+      return;
+    }
+
+    setVerifyingApiKey(true);
+    setErrors([]);
+    
+    try {
+      const result = await apiClient.verifyGeminiApiKey(settings.geminiApiKey);
+      setApiKeyValid(result.valid);
+      
+      if (result.valid) {
+        setSuccessMessage('API密钥验证成功！');
+      } else {
+        setErrors([result.error || 'API密钥验证失败']);
+      }
+    } catch (error) {
+      console.error('API key verification failed:', error);
+      setErrors(['API密钥验证失败，请检查网络连接']);
+      setApiKeyValid(false);
+    } finally {
+      setVerifyingApiKey(false);
+    }
   };
 
   if (loading) {
@@ -253,6 +290,72 @@ export function SettingsPage() {
               Maximum number of review cards to show per day (0-10000)
             </p>
           </div>
+
+          {/* AI Settings Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">AI Settings</h3>
+            
+            {/* Gemini API Key */}
+            <div>
+              <label htmlFor="geminiApiKey" className="block text-sm font-medium text-gray-700 mb-2">
+                Gemini API Key
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  id="geminiApiKey"
+                  type="password"
+                  value={settings.geminiApiKey || ''}
+                  onChange={(e) => {
+                    handleInputChange('geminiApiKey', e.target.value);
+                    setApiKeyValid(null); // Reset validation status when key changes
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your Gemini API key..."
+                />
+                <button
+                  onClick={handleVerifyApiKey}
+                  disabled={verifyingApiKey || !settings.geminiApiKey?.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verifyingApiKey ? '验证中...' : '验证'}
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                Required for AI-powered bulk card creation. Get your API key from{' '}
+                <a 
+                  href="https://makersuite.google.com/app/apikey" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                >
+                  Google AI Studio
+                </a>
+              </p>
+              {/* API Key Status */}
+              {settings.geminiApiKey && (
+                <div className="mt-2">
+                  {apiKeyValid === true && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-green-600">API密钥验证成功</span>
+                    </div>
+                  )}
+                  {apiKeyValid === false && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span className="text-sm text-red-600">API密钥验证失败</span>
+                    </div>
+                  )}
+                  {apiKeyValid === null && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <span className="text-sm text-yellow-600">API密钥未验证</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -301,6 +404,7 @@ export function SettingsPage() {
           
           <div className="pt-2 border-t border-blue-200">
             <p><strong>Daily Limits:</strong> Control how many cards you study each day, regardless of learning mode.</p>
+            <p><strong>AI Features:</strong> Gemini API key enables automatic card creation from text passages.</p>
             <p><strong>Sync:</strong> These settings are synchronized across all your Chrome browsers where you're logged in.</p>
           </div>
         </div>

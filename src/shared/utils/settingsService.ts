@@ -127,5 +127,15 @@ export function validateSettings(settings: Partial<UserSettings>): string[] {
     }
   }
   
+  if (settings.geminiApiKey !== undefined && settings.geminiApiKey.trim()) {
+    const apiKey = settings.geminiApiKey.trim();
+    if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AIza')) {
+      errors.push('Gemini API key must start with "AIza"');
+    }
+    if (apiKey.length < 35) {
+      errors.push('Gemini API key appears to be too short');
+    }
+  }
+  
   return errors;
 } 

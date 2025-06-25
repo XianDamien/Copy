@@ -13,6 +13,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@tiptap/core": "^2.14.0",
     "@tiptap/extension-bubble-menu": "^2.14.0",
     "@tiptap/extension-highlight": "^2.14.0",
@@ -29,6 +30,8 @@
   },
   "devDependencies": {
     "@samrum/vite-plugin-web-extension": "^5.1.0",
+    "@stagewise-plugins/react": "^0.4.8",
+    "@stagewise/toolbar-react": "^0.4.6",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^15.0.7",
     "@testing-library/user-event": "^14.5.2",

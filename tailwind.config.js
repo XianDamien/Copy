@@ -46,8 +46,8 @@ export default {
         'mono': ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
       },
       boxShadow: {
-        'industrial': '0 4px 6px -1px rgba(45, 55, 72, 0.1), 0 2px 4px -1px rgba(45, 55, 72, 0.06)',
-        'industrial-lg': '0 10px 15px -3px rgba(45, 55, 72, 0.1), 0 4px 6px -2px rgba(45, 55, 72, 0.05)',
+        'industrial': '0 4px 6px -1px rgba(45, 55, 72, 0.15), 0 2px 4px -1px rgba(45, 55, 72, 0.1)',
+        'industrial-lg': '0 10px 15px -3px rgba(45, 55, 72, 0.2), 0 4px 6px -2px rgba(45, 55, 72, 0.15)',
       },
       borderRadius: {
         'industrial': '0.375rem',

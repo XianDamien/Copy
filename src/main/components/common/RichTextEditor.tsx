@@ -1,18 +1,14 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
-import { Bold, Italic, Underline as UnderlineIcon, Highlighter, Sparkles, Loader2 } from 'lucide-react';
-import { useAIService } from '../../../shared/hooks/useAIService';
-import { AIInsightOverlay } from './AIInsightOverlay';
-import type { OverlayPosition } from '../../../shared/types/aiTypes';
+import { Bold, Italic, Underline as UnderlineIcon, Highlighter } from 'lucide-react';
 
 export interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  onAIRequest?: (selectedText: string) => void;
   className?: string;
   minHeight?: string;
 }
@@ -21,21 +17,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
   placeholder = '开始输入...',
-  onAIRequest,
   className = '',
   minHeight = 'h-24'
 }) => {
-  const [overlayPosition, setOverlayPosition] = useState<OverlayPosition | null>(null);
-  
-  const aiService = useAIService({
-    onSuccess: (response) => {
-      console.log('AI response received:', response);
-    },
-    onError: (error) => {
-      console.error('AI request failed:', error);
-    }
-  });
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -62,38 +46,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       },
     },
   });
-
-  // Handle AI assistance request
-  const handleAIRequest = useCallback(() => {
-    if (!editor || !onAIRequest) return;
-    
-    const selectedText = editor.state.doc.textBetween(
-      editor.state.selection.from,
-      editor.state.selection.to
-    );
-    
-    if (selectedText.trim()) {
-      // Get cursor position for overlay placement
-      const selection = editor.state.selection;
-      const coords = editor.view.coordsAtPos(selection.from);
-      
-      setOverlayPosition({ 
-        x: coords.left, 
-        y: coords.top,
-        placement: 'bottom' // Default to bottom, could be made smart based on viewport
-      });
-      
-      // Call the parent's AI request handler
-      onAIRequest(selectedText.trim());
-    }
-  }, [editor, onAIRequest]);
-
-  // Close overlay
-  const handleCloseOverlay = useCallback(() => {
-    setOverlayPosition(null);
-    aiService.clearResponse();
-    aiService.clearError();
-  }, [aiService]);
 
   if (!editor) {
     return (
@@ -165,23 +117,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Highlighter size={16} />
         </button>
-
-        {/* Divider */}
-        <div className="w-px h-4 bg-primary-300 mx-1"></div>
-
-        {/* AI Assistance */}
-        <button
-          onClick={handleAIRequest}
-          disabled={!onAIRequest || aiService.loading}
-          className={`p-1.5 rounded text-sm transition-colors ${
-            onAIRequest && !aiService.loading
-              ? 'text-purple-600 hover:bg-purple-100 hover:text-purple-700'
-              : 'text-primary-300 cursor-not-allowed'
-          }`}
-          title={onAIRequest ? (aiService.loading ? 'AI 处理中...' : 'AI 辅助') : 'AI 功能即将推出'}
-        >
-          {aiService.loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-        </button>
       </BubbleMenu>
 
       {/* Editor Content */}
@@ -195,16 +130,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="absolute top-2 left-3 text-primary-400 text-sm pointer-events-none">
           {placeholder}
         </div>
-      )}
-
-      {/* AI Insight Overlay */}
-      {overlayPosition && (aiService.response || aiService.error) && (
-        <AIInsightOverlay
-          isVisible={true}
-          response={aiService.response || undefined}
-          position={overlayPosition}
-          onDismiss={handleCloseOverlay}
-        />
       )}
     </div>
   );

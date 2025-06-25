@@ -1,6 +1,7 @@
 import { dbService } from './db';
 import { FSRSService } from './fsrsService';
 import { schedulerService } from './schedulerService';
+
 import type { ChromeMessage, ApiResponse } from '../shared/types';
 
 // 初始化服务实例
@@ -254,6 +255,79 @@ class BackgroundService {
           const noteById = await dbService.getNoteById(message.payload.id);
           return { success: true, data: noteById };
 
+        case 'BULK_CREATE_NOTES':
+          try {
+            console.log('Bulk creating notes:', message.payload);
+            
+            const { deckId, notes } = message.payload;
+            
+            // 为每个note添加deckId
+            const notesWithDeckId = notes.map((note: any) => ({
+              ...note,
+              deckId
+            }));
+            
+            const createdNotes = await dbService.bulkCreateNotes(notesWithDeckId);
+            
+            await this.updateBadge();
+            console.log(`Bulk created ${createdNotes.length} notes successfully`);
+            return { success: true, data: createdNotes };
+            
+          } catch (error) {
+            console.error('BULK_CREATE_NOTES operation failed:', error);
+            throw error;
+          }
+
+        // ==================== AI处理 ====================
+        case 'AI_PROCESS_TEXT':
+          try {
+            const { geminiService } = await import('./geminiService');
+            const { getSettings } = await import('../shared/utils/settingsService');
+            
+            // 获取用户设置中的API密钥
+            const settings = await getSettings();
+            if (!settings.geminiApiKey) {
+              return {
+                success: false,
+                error: '请先在设置页面配置Gemini API密钥'
+              };
+            }
+            
+            const result = await geminiService.processTextForCards(
+              message.payload.text,
+              settings.geminiApiKey
+            );
+            return { success: true, data: result };
+          } catch (error) {
+            console.error('AI_PROCESS_TEXT操作失败:', error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'AI处理失败'
+            };
+          }
+
+        case 'VERIFY_GEMINI_API_KEY':
+          try {
+            const { geminiService } = await import('./geminiService');
+            const { apiKey } = message.payload;
+            
+            if (!apiKey || typeof apiKey !== 'string') {
+              return {
+                success: false,
+                error: 'API密钥不能为空'
+              };
+            }
+            
+            const result = await geminiService.validateApiKey(apiKey);
+            return { success: true, data: result };
+          } catch (error) {
+            console.error('VERIFY_GEMINI_API_KEY操作失败:', error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'API密钥验证失败'
+            };
+          }
+
         // ==================== 卡片操作 ====================
         case 'GET_DUE_CARDS':
           const dueCards = await dbService.getDueCards(
@@ -432,10 +506,11 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // 消息处理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // 处理异步消息
   backgroundService.handleMessage(message, sender)
     .then(response => sendResponse(response))
     .catch(error => {
-      console.error('Message handling error:', error);
+      console.error('Message handling failed:', error);
       sendResponse({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -446,32 +521,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// 定时任务处理 - 包含健康检查机制
+// 定时任务处理
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'health-check') {
-    try {
-      if (!backgroundService.isInitialized) {
-        console.log('Health check detected uninitialized service, attempting recovery...');
-        await backgroundService.init();
-      }
-    } catch (error) {
-      console.error('Health check initialization failed:', error);
-    }
+  try {
+    await backgroundService.handleAlarm(alarm);
+  } catch (error) {
+    console.error('Alarm handling failed:', error);
   }
-  
-  // 处理其他定时任务
-  await backgroundService.handleAlarm(alarm);
 });
 
-// 扩展图标点击处理
-chrome.action.onClicked.addListener(async (_tab) => {
-  // 打开主应用页面
-  await chrome.tabs.create({
-    url: chrome.runtime.getURL('main.html')
-  });
-});
-
-console.log('AnGear Background Script loaded');
-
-// 导出服务实例（用于测试）
+// 导出服务实例用于测试
 export { backgroundService }; 

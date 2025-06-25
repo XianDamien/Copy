@@ -179,7 +179,12 @@
 
   /* 工业风模态框样式 */
   .modal-overlay {
-    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center;
+    z-index: 9999;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
   }
 
   .modal-content {

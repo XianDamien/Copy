@@ -1,4 +1,4 @@
-import type { ChromeMessage, ApiResponse } from '../types';
+import type { ChromeMessage, ApiResponse, Note, Card } from '../types';
 
 /**
  * API客户端类
@@ -136,6 +136,30 @@ export class ApiClient {
     return this.sendMessage('GET_NOTE_BY_ID', { id });
   }
 
+  /**
+   * 批量创建笔记
+   */
+  async bulkCreateNotes(deckId: number, notes: Omit<Note, 'id' | 'deckId'>[]): Promise<Note[]> {
+    const response = await this.sendMessage('BULK_CREATE_NOTES', { deckId, notes });
+    return response as Note[];
+  }
+
+  // ==================== AI处理 ====================
+
+  /**
+   * 使用AI处理文本生成卡片
+   */
+  async aiProcessText(text: string): Promise<Array<{front: string, back: string}>> {
+    return this.sendMessage('AI_PROCESS_TEXT', { text });
+  }
+
+  /**
+   * 验证Gemini API密钥
+   */
+  async verifyGeminiApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+    return this.sendMessage('VERIFY_GEMINI_API_KEY', { apiKey });
+  }
+
   // ==================== 卡片操作 ====================
 
   /**
@@ -190,6 +214,14 @@ export class ApiClient {
    */
   async resetCardsInDeck(deckId: number | null): Promise<number> {
     return this.sendMessage('RESET_CARDS_IN_DECK', { deckId });
+  }
+
+  /**
+   * 更新卡片
+   */
+  async updateCard(card: Card): Promise<Card> {
+    const response = await this.sendMessage('UPDATE_CARD', { card });
+    return response;
   }
 
   // ==================== FSRS配置 ====================
@@ -314,6 +346,7 @@ export const {
   getDueCards,
   reviewCard,
   getReviewPredictions,
+  updateCard,
   
   // FSRS配置
   getFSRSConfig,

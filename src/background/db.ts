@@ -334,6 +334,24 @@ export class DatabaseService {
     await tx.done;
   }
 
+  /**
+   * 批量创建笔记
+   */
+  async bulkCreateNotes(notes: Omit<Note, 'id'>[]): Promise<Note[]> {
+    const db = await this.ensureDatabase();
+    const tx = db.transaction('notes', 'readwrite');
+    const store = tx.objectStore('notes');
+    
+    const createdNotes: Note[] = [];
+    for (const note of notes) {
+      const id = await store.add(note) as number;
+      createdNotes.push({ ...note, id });
+    }
+
+    await tx.done;
+    return createdNotes;
+  }
+
   // ==================== 卡片管理 ====================
 
   /**

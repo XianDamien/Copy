@@ -19,7 +19,6 @@ export default defineConfig({
         version: packageJson.version,
         manifest_version: 3,
         
-        // 权限配置
         permissions: [
           'activeTab',
           'scripting',
@@ -28,15 +27,19 @@ export default defineConfig({
           'unlimitedStorage'
         ],
         
-        // 可选权限（用于AI功能） - 暂时移除避免类型错误
+        host_permissions: [
+          'https://generativelanguage.googleapis.com/*'
+        ],
         
-        // 后台脚本 (Service Worker)
+        content_security_policy: {
+          extension_pages: "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com;"
+        },
+        
         background: {
           service_worker: 'src/background/index.ts',
           type: 'module'
         },
         
-        // 弹窗界面
         action: {
           default_popup: 'src/popup/index.html',
           default_title: 'LanGear Language Extension',
@@ -48,9 +51,6 @@ export default defineConfig({
           }
         },
         
-
-        
-        // 内容脚本
         content_scripts: [
           {
             matches: ['<all_urls>'],
@@ -60,7 +60,6 @@ export default defineConfig({
           }
         ],
         
-        // Web可访问资源
         web_accessible_resources: [
           {
             resources: [
@@ -72,7 +71,6 @@ export default defineConfig({
           }
         ],
         
-        // 图标配置
         icons: {
           '16': 'icons/icon16.png',
           '32': 'icons/icon32.png',
@@ -81,7 +79,6 @@ export default defineConfig({
         }
       },
       
-      // 额外的入口文件
       additionalInputs: {
         html: [
           'src/main/index.html'
@@ -111,7 +108,8 @@ export default defineConfig({
   
   // 开发服务器配置
   server: {
+    host: '127.0.0.1', // <-- 添加 host
     port: 3000,
     strictPort: true
   }
-}); 
+});

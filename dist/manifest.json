@@ -10,6 +10,12 @@
     "alarms",
     "unlimitedStorage"
   ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com;"
+  },
   "background": {
     "service_worker": "serviceWorker.js",
     "type": "module"
