@@ -125,7 +125,7 @@ const MainApp: React.FC = () => {
           </div>
         );
       case 'review':
-        return <Review deckId={selectedDeckId} onBack={() => handleNavigation('home')} onEditNote={handleEditNote} />;
+        return <Review deckId={selectedDeckId} onBack={() => handleNavigation('home')} />;
       case 'stats':
         return (
           <div className="text-center py-12">

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, RotateCcw, CheckCircle } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import type { Card, Note, AppRating, Deck, UserSettings } from '../../shared/types';
@@ -36,7 +36,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
   const [cardsForEvaluation, setCardsForEvaluation] = useState<CardWithNote[]>([]);
   const [showTranslation, setShowTranslation] = useState(false);
   const [evaluationIndex, setEvaluationIndex] = useState(0);
-
+  const [showHint, setShowHint] = useState(false);
   const [editedNotes, setEditedNotes] = useState<string | null>(null);
   const [isNoteDirty, setIsNoteDirty] = useState(false);
   const [userTranslation, setUserTranslation] = useState('');
@@ -113,14 +113,6 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             event.preventDefault();
             showAnswer();
             break;
-          case 'e':
-          case 'E':
-            event.preventDefault();
-            handleEditCard();
-            break;
-        }
-      } else if (reviewState === 'task-question') {
-        switch (event.key) {
           case 'e':
           case 'E':
             event.preventDefault();
@@ -289,7 +281,9 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
   };
 
   // 新增的处理函数
-
+  const handleToggleHint = () => {
+    setShowHint(!showHint);
+  };
 
   // Task 1.3: 新的任务相关事件处理器
   const handleUserTranslationChange = (text: string) => {
@@ -603,12 +597,6 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       console.log('DEBUG: renderTaskInterface rendering task-question interface');
       return (
         <div className="max-w-4xl mx-auto p-6 space-y-6">
-          {/* 模式状态指示器 */}
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
-              任务模式 - 新卡片学习
-            </div>
-          </div>
           <TaskDisplay originalText={currentCard.note.fields.CtoE?.chinese || ''} />
           <TranslationInput 
             value={userTranslation} 
@@ -616,14 +604,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
           />
           <TaskControls 
             onSubmit={handleSubmitTask} 
-            onSkip={handleSkipTask}
-            onEditCard={handleEditCard}
-            onPreviousCard={handlePreviousCard}
-            onNextCard={handleNextCard}
-            canGoPrevious={currentCardIndex > 0}
-            canGoNext={currentCardIndex < cards.length - 1}
-            currentCardIndex={currentCardIndex}
-            totalCards={cards.length}
+            onSkip={handleSkipTask} 
           />
         </div>
       );
@@ -633,12 +614,6 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       console.log('DEBUG: renderTaskInterface rendering task-evaluation interface');
       return (
         <div className="max-w-4xl mx-auto p-6 space-y-6">
-          {/* 模式状态指示器 */}
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
-              任务模式 - 自我评估
-            </div>
-          </div>
           <EvaluationDisplay
             originalText={currentCard.note.fields.CtoE?.chinese || ''}
             userTranslation={userTranslation}
@@ -674,14 +649,14 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
           <SidePanel
             referenceTranslation={currentCard.note.fields.CtoE?.english || ''}
             studyNotes={currentCard.note.fields.CtoE?.notes || ''}
-            isOpen={isSidePanelOpen}
-            onToggle={() => setIsSidePanelOpen(!isSidePanelOpen)}
+            isOpen={showHint}
+            onToggle={handleToggleHint}
             onReferenceChange={(content) => handleNoteFieldUpdate('english', content)}
             onNotesChange={(content) => handleNoteFieldUpdate('notes', content)}
           />
 
           {/* 主要内容区域 - 任务模式 */}
-          <div className={`flex-1 transition-all duration-300 ${isSidePanelOpen ? 'mr-[300px]' : 'mr-0'}`}>
+          <div className={`flex-1 transition-all duration-300 ${showHint ? 'mr-[300px]' : 'mr-0'}`}>
             <div className="flex items-center justify-between p-6 border-b border-primary-200">
               <button
                 onClick={resetReview}
@@ -733,12 +708,6 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
         {/* 主要内容区域 */}
         <div className={`flex-1 transition-all duration-300 ${isSidePanelOpen ? 'mr-[300px]' : 'mr-0'}`}>
           <div className="max-w-4xl mx-auto p-6 space-y-6">
-            {/* 模式状态指示器 */}
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium">
-                复习模式 - 已学卡片复习
-              </div>
-            </div>
             {/* 顶部导航栏 */}
         <div className="flex items-center justify-between">
             <button

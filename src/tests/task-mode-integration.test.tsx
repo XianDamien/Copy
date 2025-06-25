@@ -1,0 +1,248 @@
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import TaskDisplay from '../main/components/review/TaskDisplay';
+import TaskControls from '../main/components/review/TaskControls';
+
+describe('Task Mode Integration Tests', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Mode Indicator Integration', () => {
+    it('should work with task display and controls together', () => {
+      const mockProps = {
+        onSubmit: vi.fn(),
+        onSkip: vi.fn(),
+        onEditCard: vi.fn(),
+        onPreviousCard: vi.fn(),
+        onNextCard: vi.fn(),
+        canGoPrevious: true,
+        canGoNext: true,
+        currentCardIndex: 0,
+        totalCards: 5
+      };
+
+      render(
+        <div>
+          {/* 模拟任务模式界面布局 */}
+          <div className="flex justify-center mb-4">
+            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
+              任务模式 - 新卡片学习
+            </div>
+          </div>
+          <TaskDisplay originalText="<p>测试HTML内容</p>" />
+          <TaskControls {...mockProps} />
+        </div>
+      );
+
+      // 验证模式指示器
+      expect(screen.getByText('任务模式 - 新卡片学习')).toBeInTheDocument();
+      
+      // 验证HTML渲染
+      expect(screen.getByText('测试HTML内容')).toBeInTheDocument();
+      expect(screen.queryByText('<p>')).not.toBeInTheDocument();
+      
+      // 验证控制按钮
+      expect(screen.getByText('提交翻译')).toBeInTheDocument();
+      expect(screen.getByText('无法完成')).toBeInTheDocument();
+      expect(screen.getByTitle('编辑卡片 (E)')).toBeInTheDocument();
+      expect(screen.getByText('上一个')).toBeInTheDocument();
+      expect(screen.getByText('下一个')).toBeInTheDocument();
+      
+      // 验证进度指示
+      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+    });
+  });
+
+  describe('HTML Rendering in Task Mode', () => {
+    it('should render complex HTML structures correctly', () => {
+      const complexHtml = '<strong>重要提示：</strong><br/><em>这是一个</em><u>测试内容</u>';
+      
+      render(<TaskDisplay originalText={complexHtml} />);
+      
+      // 验证文本内容被正确提取和显示
+      expect(screen.getByText('重要提示：')).toBeInTheDocument();
+      expect(screen.getByText('这是一个')).toBeInTheDocument();
+      expect(screen.getByText('测试内容')).toBeInTheDocument();
+      
+      // 确保HTML标签不会显示为文本
+      expect(screen.queryByText('<strong>')).not.toBeInTheDocument();
+      expect(screen.queryByText('<br/>')).not.toBeInTheDocument();
+      expect(screen.queryByText('<em>')).not.toBeInTheDocument();
+      expect(screen.queryByText('<u>')).not.toBeInTheDocument();
+    });
+
+    it('should handle mixed Chinese and HTML content', () => {
+      const mixedContent = '我的座位<p>很好</p>，<strong>非常</strong>舒适。';
+      
+      const { container } = render(<TaskDisplay originalText={mixedContent} />);
+      
+      // 使用 container.textContent 检查整体文本内容
+      expect(container.textContent).toContain('我的座位');
+      expect(container.textContent).toContain('很好');
+      expect(container.textContent).toContain('非常');
+      expect(container.textContent).toContain('舒适');
+      
+      // 验证HTML结构被正确渲染
+      const contentDiv = container.querySelector('.text-primary-900');
+      expect(contentDiv).toBeInTheDocument();
+    });
+  });
+
+  describe('Enhanced Task Controls', () => {
+    it('should integrate all control functions properly', () => {
+      const mockFunctions = {
+        onSubmit: vi.fn(),
+        onSkip: vi.fn(),
+        onEditCard: vi.fn(),
+        onPreviousCard: vi.fn(),
+        onNextCard: vi.fn()
+      };
+
+      render(
+        <TaskControls 
+          {...mockFunctions}
+          canGoPrevious={true}
+          canGoNext={true}
+          currentCardIndex={2}
+          totalCards={10}
+        />
+      );
+
+      // 测试主要功能按钮
+      fireEvent.click(screen.getByText('提交翻译'));
+      expect(mockFunctions.onSubmit).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByText('无法完成'));
+      expect(mockFunctions.onSkip).toHaveBeenCalledTimes(1);
+
+      // 测试编辑功能
+      fireEvent.click(screen.getByTitle('编辑卡片 (E)'));
+      expect(mockFunctions.onEditCard).toHaveBeenCalledTimes(1);
+
+      // 测试导航功能
+      fireEvent.click(screen.getByText('上一个'));
+      expect(mockFunctions.onPreviousCard).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByText('下一个'));
+      expect(mockFunctions.onNextCard).toHaveBeenCalledTimes(1);
+
+      // 验证进度显示
+      expect(screen.getByText('3 / 10')).toBeInTheDocument();
+    });
+
+    it('should handle boundary conditions correctly', () => {
+      const mockFunctions = {
+        onSubmit: vi.fn(),
+        onSkip: vi.fn(),
+        onEditCard: vi.fn(),
+        onPreviousCard: vi.fn(),
+        onNextCard: vi.fn()
+      };
+
+      // 测试第一张卡片（不能上一个）
+      const { rerender } = render(
+        <TaskControls 
+          {...mockFunctions}
+          canGoPrevious={false}
+          canGoNext={true}
+          currentCardIndex={0}
+          totalCards={5}
+        />
+      );
+
+      const previousButton = screen.getByText('上一个');
+      const nextButton = screen.getByText('下一个');
+
+      expect(previousButton).toBeDisabled();
+      expect(nextButton).not.toBeDisabled();
+      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+
+      // 测试最后一张卡片（不能下一个）
+      rerender(
+        <TaskControls 
+          {...mockFunctions}
+          canGoPrevious={true}
+          canGoNext={false}
+          currentCardIndex={4}
+          totalCards={5}
+        />
+      );
+
+      expect(screen.getByText('上一个')).not.toBeDisabled();
+      expect(screen.getByText('下一个')).toBeDisabled();
+      expect(screen.getByText('5 / 5')).toBeInTheDocument();
+    });
+  });
+
+  describe('Complete Task Mode Workflow', () => {
+    it('should simulate a complete task mode interaction', () => {
+      const mockFunctions = {
+        onSubmit: vi.fn(),
+        onSkip: vi.fn(),
+        onEditCard: vi.fn(),
+        onPreviousCard: vi.fn(),
+        onNextCard: vi.fn()
+      };
+
+      render(
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+          {/* 模式指示器 */}
+          <div className="flex justify-center mb-4">
+            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
+              任务模式 - 新卡片学习
+            </div>
+          </div>
+          
+          {/* 任务显示 */}
+          <TaskDisplay originalText="<p>我需要翻译这个句子</p>" />
+          
+          {/* 模拟翻译输入 */}
+          <div className="bg-white rounded-lg shadow-sm border border-primary-200 p-4">
+            <textarea 
+              placeholder="请输入您的翻译..."
+              className="w-full h-32 p-3 border border-primary-300 rounded-md"
+              data-testid="translation-input"
+            />
+          </div>
+          
+          {/* 任务控制 */}
+          <TaskControls 
+            {...mockFunctions}
+            canGoPrevious={true}
+            canGoNext={true}
+            currentCardIndex={1}
+            totalCards={3}
+          />
+        </div>
+      );
+
+      // 验证完整界面存在
+      expect(screen.getByText('任务模式 - 新卡片学习')).toBeInTheDocument();
+      expect(screen.getByText('我需要翻译这个句子')).toBeInTheDocument();
+      expect(screen.getByText('请翻译以下内容：')).toBeInTheDocument();
+      expect(screen.getByTestId('translation-input')).toBeInTheDocument();
+      
+      // 模拟用户交互流程
+      const translationInput = screen.getByTestId('translation-input');
+      fireEvent.change(translationInput, { target: { value: 'I need to translate this sentence' } });
+      
+      // 用户可以编辑卡片
+      fireEvent.click(screen.getByTitle('编辑卡片 (E)'));
+      expect(mockFunctions.onEditCard).toHaveBeenCalled();
+      
+      // 用户可以导航
+      fireEvent.click(screen.getByText('上一个'));
+      expect(mockFunctions.onPreviousCard).toHaveBeenCalled();
+      
+      // 用户可以提交翻译
+      fireEvent.click(screen.getByText('提交翻译'));
+      expect(mockFunctions.onSubmit).toHaveBeenCalled();
+      
+      // 验证所有功能都被正确调用
+      expect(mockFunctions.onEditCard).toHaveBeenCalledTimes(1);
+      expect(mockFunctions.onPreviousCard).toHaveBeenCalledTimes(1);
+      expect(mockFunctions.onSubmit).toHaveBeenCalledTimes(1);
+    });
+  });
+}); 

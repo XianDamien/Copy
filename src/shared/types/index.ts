@@ -52,6 +52,7 @@ export interface NoteFields {
     chinese: string;
     english: string;
     pinyin?: string;
+    userTranslation?: string;
     notes?: string;
   };
   Retranslate: {
