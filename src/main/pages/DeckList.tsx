@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { BookOpen, Plus, Edit3, Trash2, BarChart3, Play, TestTube } from 'lucide-react';
+import { BookOpen, Plus, Edit3, Trash2, BarChart3, Play, TestTube, RotateCcw } from 'lucide-react';
 import { ApiClient } from '../../shared/utils/api';
 import { Deck, DeckStatistics } from '../../shared/types';
 import { TestDataGenerator } from '../../shared/utils/testDataGenerator';
@@ -35,6 +35,36 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
   useEffect(() => {
     loadDecks();
   }, []);
+
+  // 阶段3：添加页面可见性变化监听，实现智能数据刷新
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // 当页面重新变为可见时，重新加载数据
+      if (!document.hidden) {
+        loadDecks();
+      }
+    };
+
+    const handleFocus = () => {
+      // 当窗口重新获得焦点时，重新加载数据
+      loadDecks();
+    };
+
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // 监听窗口焦点变化
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // 阶段3：提供手动刷新方法
+  const refreshDecks = async () => {
+    await loadDecks();
+  };
 
   const loadDecks = async () => {
     try {
@@ -219,6 +249,17 @@ export const DeckList: React.FC<DeckListProps> = ({ onDeckSelect, onCreateNote, 
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* 阶段3：添加刷新按钮 */}
+          <button
+            onClick={refreshDecks}
+            disabled={loading}
+            className="btn-secondary flex items-center space-x-2"
+            title="刷新牌组数据"
+          >
+            <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? '刷新中...' : '刷新'}</span>
+          </button>
+          
           <button
             onClick={handleGenerateTestData}
             disabled={isGeneratingTestData}

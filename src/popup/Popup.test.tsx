@@ -57,7 +57,7 @@ describe('Popup Component', () => {
       expect(screen.queryByText('加载中...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByText('AnGear')).toBeInTheDocument();
+    expect(screen.getByText('LanGear')).toBeInTheDocument();
     expect(screen.getByText('工业级语言学习工具')).toBeInTheDocument();
     expect(screen.getByText('学习状态')).toBeInTheDocument();
   });

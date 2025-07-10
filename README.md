@@ -1,8 +1,8 @@
-# AnGear Language Learning Extension
+# LanGear Language Learning Extension
 
 <div align="center">
 
-![AnGear Logo](https://via.placeholder.com/200x200/2D3748/F7FAFC?text=AnGear)
+![LanGear Logo](https://via.placeholder.com/200x200/2D3748/F7FAFC?text=LanGear)
 
 **🔧 工业级智能语言学习Chrome扩展**
 
@@ -15,7 +15,7 @@
 
 ## 🎯 项目概述
 
-AnGear是一个高效的Chrome扩展，采用工业风设计理念，为语言学习者提供智能化的记忆训练体验。基于科学的FSRS(Free Spaced Repetition Scheduler)算法，实现精准的复习调度，最大化学习效率。
+LanGear是一个高效的Chrome扩展，采用工业风设计理念，为语言学习者提供智能化的记忆训练体验。基于科学的FSRS(Free Spaced Repetition Scheduler)算法，实现精准的复习调度，最大化学习效率。
 
 ### ✨ 核心特性
 
@@ -54,7 +54,7 @@ AnGear是一个高效的Chrome扩展，采用工业风设计理念，为语言�
 ## 📁 项目结构
 
 ```
-AnGear-Language-Extension/
+LanGear-Language-Extension/
 ├── public/
 │   ├── manifest.json           # Chrome扩展配置
 │   ├── popup.html              # 弹窗页面
@@ -275,8 +275,8 @@ Chrome/Chromium >= 88.0
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourusername/angear-language-extension.git
-cd angear-language-extension
+git clone https://github.com/yourusername/langear-language-extension.git
+cd langear-language-extension
 
 # 安装依赖
 npm install
@@ -531,8 +531,8 @@ npm run package
 
 ## 📞 联系方式
 
-- 项目主页: [https://github.com/yourusername/angear-language-extension](https://github.com/yourusername/angear-language-extension)
-- Issue追踪: [https://github.com/yourusername/angear-language-extension/issues](https://github.com/yourusername/angear-language-extension/issues)
+- 项目主页: [https://github.com/yourusername/langear-language-extension](https://github.com/yourusername/langear-language-extension)
+- Issue追踪: [https://github.com/yourusername/langear-language-extension/issues](https://github.com/yourusername/langear-language-extension/issues)
 - 开发者: your.email@example.com
 
 ---

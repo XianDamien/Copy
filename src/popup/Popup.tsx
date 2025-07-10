@@ -82,7 +82,7 @@ export const Popup: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Cog className="w-6 h-6" />
-            <h1 className="text-lg font-bold">AnGear</h1>
+            <h1 className="text-lg font-bold">LanGear</h1>
           </div>
           <button
             onClick={openOptions}

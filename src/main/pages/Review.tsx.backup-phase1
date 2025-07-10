@@ -12,14 +12,13 @@ import TranslationInput from '../components/review/TranslationInput';
 import TaskControls from '../components/review/TaskControls';
 import EvaluationDisplay from '../components/review/EvaluationDisplay';
 import SelfEvaluationControls from '../components/review/SelfEvaluationControls';
-import NoteEditor from './NoteEditor';
 
 interface ReviewProps {
   deckId?: number | null;
   onBack?: () => void;
 }
 
-type ReviewState = 'deck-selection' | 'loading' | 'question' | 'task-question' | 'task-evaluation' | 'answer' | 'completed' | 'no-cards';
+type ReviewState = 'deck-selection' | 'loading' | 'question' | 'task-question' | 'task-evaluation' | 'answer' | 'completed' | 'no-cards' | 'evaluation';
 
 interface CardWithNote extends Card {
   note: Note;
@@ -27,19 +26,19 @@ interface CardWithNote extends Card {
 
 export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
   const [reviewState, setReviewState] = useState<ReviewState>(deckId ? 'loading' : 'deck-selection');
+  const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [cards, setCards] = useState<CardWithNote[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCards, setReviewedCards] = useState(0);
 
-
+  const [cardsForEvaluation, setCardsForEvaluation] = useState<CardWithNote[]>([]);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [evaluationIndex, setEvaluationIndex] = useState(0);
 
   const [editedNotes, setEditedNotes] = useState<string | null>(null);
   const [userTranslation, setUserTranslation] = useState('');
   const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
-  
-  // Phase 2: 模态框状态
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Phase 3: 动态队列管理状态
   const [retryQueue, setRetryQueue] = useState<CardWithNote[]>([]);
@@ -75,6 +74,8 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
 
     loadUserSettings();
   }, [deckId]);
+
+
 
   // Keyboard shortcuts for review interface
   useEffect(() => {
@@ -143,6 +144,8 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             break;
         }
       }
+
+
     };
 
     document.addEventListener('keydown', handleKeyPress);
@@ -160,6 +163,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
 
   const startReview = async (deckId: number | null = null) => {
     setReviewState('loading');
+    setSelectedDeckId(deckId);
 
     try {
       // Phase 2.2: Use new scheduler service instead of getDueCards
@@ -221,8 +225,10 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
         console.log('DEBUG: enableTraditionalLearningSteps:', userSettings.enableTraditionalLearningSteps);
         
         if (isTaskMode(firstCard)) {
+          console.log('DEBUG: Setting reviewState to task-question');
           setReviewState('task-question');
         } else {
+          console.log('DEBUG: Setting reviewState to question');
           setReviewState('question');
         }
       } else {
@@ -230,7 +236,8 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       }
     } catch (error) {
       console.error('Failed to start review:', error);
-      setReviewState('no-cards');
+      alert('启动复习失败，请重试');
+      setReviewState('deck-selection');
     }
   };
 
@@ -238,46 +245,51 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     setReviewState('answer');
   };
 
+  // Phase 3: 处理重试队列
   const processRetryQueue = () => {
-    if (retryQueue.length === 0 || isProcessingRetries) return;
-
-    setIsProcessingRetries(true);
-    
-    // 将retry队列的卡片添加到当前学习队列的末尾
-    const updatedCards = [...cards];
-    retryQueue.forEach(retryCard => {
-      // 避免重复添加
-      if (!updatedCards.find(card => card.id === retryCard.id)) {
-        updatedCards.push(retryCard);
+    if (retryQueue.length > 0 && !isProcessingRetries) {
+      setIsProcessingRetries(true);
+      // 将重试队列的卡片添加到主队列末尾
+      setCards(prev => [...prev, ...retryQueue]);
+      // 清空重试队列
+      setRetryQueue([]);
+      // 继续复习重试的卡片
+      setCurrentCardIndex(cards.length); // 指向第一张重试卡片
+      setUserTranslation('');
+      
+      // 根据重试卡片的状态决定界面
+      const retryCard = retryQueue[0];
+      if (isTaskMode(retryCard)) {
+        setReviewState('task-question');
+      } else {
+        setReviewState('question');
       }
-    });
-    
-    setCards(updatedCards);
-    setRetryQueue([]);
-    setIsProcessingRetries(false);
-    
-    console.log(`Processed ${retryQueue.length} retry cards`);
+    } else {
+      setReviewState('completed');
+    }
   };
 
   const submitRating = async (rating: AppRating) => {
-    const currentCard = getCurrentCard();
+    const currentCard = cards[currentCardIndex];
     if (!currentCard) return;
 
     try {
-              await apiClient.reviewCard(currentCard.id, rating === 'Again' ? 1 : rating === 'Hard' ? 2 : rating === 'Good' ? 3 : 4);
+      // 提交评分到FSRS系统
+      await apiClient.reviewCard(currentCard.id, rating === 'Again' ? 1 : rating === 'Hard' ? 2 : rating === 'Good' ? 3 : 4);
+      
       setReviewedCards(prev => prev + 1);
 
-      // Phase 3: 处理重试逻辑
+      // Phase 3: 动态队列管理 - 如果评级为Again，将卡片加入重试队列
       if (rating === 'Again') {
-        // 将当前卡片加入重试队列
         setRetryQueue(prev => [...prev, currentCard]);
       }
 
-      // 移动到下一张卡片或结束复习
+      // 检查是否还有更多卡片
       if (currentCardIndex < cards.length - 1) {
         setCurrentCardIndex(prev => prev + 1);
         setUserTranslation(''); // 清空用户翻译
         
+        // 根据下一张卡片的状态决定界面
         const nextCard = cards[currentCardIndex + 1];
         if (isTaskMode(nextCard)) {
           setReviewState('task-question');
@@ -285,39 +297,38 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
           setReviewState('question');
         }
       } else {
-        // 检查是否有重试队列需要处理
-        if (retryQueue.length > 0) {
-          processRetryQueue();
-          setCurrentCardIndex(cards.length); // 指向新添加的重试卡片
-          setReviewState('question');
-        } else {
-          setReviewState('completed');
-        }
+        // 主队列完成，检查是否有重试队列
+        processRetryQueue();
       }
     } catch (error) {
       console.error('Failed to submit rating:', error);
-      toast.error('提交评分失败，请重试');
+      alert('提交评分失败，请重试');
     }
   };
 
   const resetReview = () => {
     setReviewState('deck-selection');
+    setSelectedDeckId(null);
     setCards([]);
     setCurrentCardIndex(0);
     setReviewedCards(0);
-    setUserTranslation('');
+    setCardsForEvaluation([]);
+    // Phase 3: 重置重试队列状态
     setRetryQueue([]);
     setIsProcessingRetries(false);
   };
 
+  /**
+   * Handle resetting card progress for a deck or all cards
+   * Phase 2.2: New bulk reset functionality
+   */
   const handleResetDeckCards = async (deckId: number | null) => {
-    if (!deckId) return;
+    const deckName = deckId ? decks.find(d => d.id === deckId)?.name || `牌组 ${deckId}` : '所有牌组';
     
-    const deckName = decks.find(deck => deck.id === deckId)?.name || '未知卡组';
     const confirmed = window.confirm(
-      `确定要重置卡组"${deckName}"中的所有卡片吗？这将把所有卡片状态重置为"新卡片"状态。`
+      `确定要重置 ${deckName} 中所有卡片的复习进度吗？\n\n这将清除这些卡片的所有学习记录，将它们重置为新卡片状态。此操作无法撤销。`
     );
-    
+
     if (!confirmed) return;
 
     try {
@@ -330,36 +341,8 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
   };
 
   const handleEditCard = () => {
-    setIsEditModalOpen(true);
-  };
-
-  // Phase 4: 处理笔记更新和刷新
-  const handleNoteUpdateAndRefresh = async () => {
-    try {
-      // 关闭模态框
-      setIsEditModalOpen(false);
-      
-      // 重新获取当前卡片的最新数据
-      const currentCard = getCurrentCard();
-      if (currentCard) {
-        const updatedNote = await apiClient.getNoteById(currentCard.noteId);
-        if (updatedNote) {
-          // 更新本地卡片数据
-          const updatedCards = [...cards];
-          updatedCards[currentCardIndex] = {
-            ...currentCard,
-            note: updatedNote
-          };
-          setCards(updatedCards);
-          
-          console.log('Card data refreshed after note save');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh card data:', error);
-      // 即使刷新失败，也要关闭模态框
-      setIsEditModalOpen(false);
-    }
+    // TODO: Phase 3 - 打开模态编辑窗口
+    console.log('Edit card clicked');
   };
 
   const handleSkipCard = async () => {
@@ -378,6 +361,11 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     return result;
   };
 
+  const handleShowTranslation = () => {
+    setShowTranslation(true);
+  };
+
+  // 新增的处理函数
 
 
   // Task 1.3: 新的任务相关事件处理器
@@ -393,7 +381,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     submitRating('Again');
   };
 
-  // 自我评估函数 - 自动保存翻译到学习笔记
+  // 阶段2：增强的自我评估函数 - 自动保存翻译到学习笔记
   const handleSelfEvaluation = async (rating: AppRating) => {
     // 如果用户有翻译输入，自动保存到学习笔记
     if (userTranslation.trim()) {
@@ -403,7 +391,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     submitRating(rating);
   };
 
-  // 将翻译保存到学习笔记的函数
+  // 阶段2：将翻译保存到学习笔记的函数
   const saveTranslationToNotes = async (translation: string) => {
     const currentCard = getCurrentCard();
     if (!currentCard) return;
@@ -421,15 +409,18 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
         </div>
       </div>`;
 
-      // 获取现有笔记内容
-      const existingNotes = currentCard.note.fields.CtoE?.notes || '';
+      // 获取现有笔记内容 - 优先使用待处理状态，确保不丢失用户编辑
+      const existingNotes = pendingStudyNotes || currentCard.note.fields.CtoE?.notes || '';
       const updatedNotes = existingNotes ? `${existingNotes}\n${newEntry}` : newEntry;
 
       // 使用统一的更新函数
       await updateNoteContent(
-        currentCard.note.fields.CtoE?.english || '',
+        pendingReferenceTranslation || currentCard.note.fields.CtoE?.english || '',
         updatedNotes
       );
+      
+      // 更新待处理的笔记状态
+      setPendingStudyNotes(updatedNotes);
       
       console.log('Translation saved to notes:', translation);
     } catch (error) {
@@ -438,10 +429,18 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     }
   };
 
-  const handlePreviousCard = async () => {    
+  const handlePreviousCard = async () => {
+    // Phase 2: 如果有未保存的更改，先自动保存
+    if (hasUnsavedChanges) {
+      await handleSaveChanges();
+    }
+    
     if (currentCardIndex > 0) {
       setCurrentCardIndex(prev => prev - 1);
       setUserTranslation(''); // 清空用户翻译
+      
+      // Phase 2: 关闭侧边栏，作为"提示"系统
+      setIsSidePanelOpen(false);
       
       // 根据新卡片的状态决定界面
       const newCard = cards[currentCardIndex - 1];
@@ -453,13 +452,22 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       
       // 重置编辑状态
       setEditedNotes(null);
+      setIsNoteDirty(false);
     }
   };
 
   const handleNextCard = async () => {
+    // Phase 2: 如果有未保存的更改，先自动保存
+    if (hasUnsavedChanges) {
+      await handleSaveChanges();
+    }
+    
     if (currentCardIndex < cards.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
       setUserTranslation(''); // 清空用户翻译
+      
+      // Phase 2: 关闭侧边栏，作为"提示"系统
+      setIsSidePanelOpen(false);
       
       // 根据新卡片的状态决定界面
       const newCard = cards[currentCardIndex + 1];
@@ -471,15 +479,27 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       
       // 重置编辑状态
       setEditedNotes(null);
+      setIsNoteDirty(false);
     }
   };
 
   // 新的简化笔记更新函数 - 只更新本地状态
   const handleNoteUpdate = (newContent: string) => {
     setEditedNotes(newContent);
+    setIsNoteDirty(true);
   };
 
-  // 统一的笔记内容更新函数
+  // 阶段1：重构的笔记字段更新函数 - 只更新本地状态，不自动保存
+  const handleNoteFieldUpdate = (fieldName: 'english' | 'notes', content: string) => {
+    if (fieldName === 'english') {
+      setPendingReferenceTranslation(content);
+    } else {
+      setPendingStudyNotes(content);
+    }
+    setHasUnsavedChanges(true);
+  };
+
+  // 阶段2：统一的笔记内容更新函数
   const updateNoteContent = async (newEnglish: string, newNotes: string) => {
     const currentCard = getCurrentCard();
     if (!currentCard) throw new Error('No current card');
@@ -511,14 +531,66 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     return updatedFields;
   };
 
+  // 阶段2：重构的手动保存函数
+  const handleSaveChanges = async () => {
+    if (!hasUnsavedChanges || isSaving) return;
 
+    try {
+      setIsSaving(true);
+      
+      await updateNoteContent(
+        pendingReferenceTranslation,
+        pendingStudyNotes
+      );
+      
+      // 重置状态
+      setHasUnsavedChanges(false);
+      toast.success('笔记已保存！');
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      toast.error('保存失败，请重试');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEvaluationComplete = async (difficulty: 'easy' | 'medium' | 'hard') => {
+    const currentCard = cardsForEvaluation[evaluationIndex];
+    if (!currentCard) return;
+
+    try {
+      // Update card difficulty and schedule next review
+      const interval = difficulty === 'easy' ? 30 : difficulty === 'medium' ? 15 : 5;
+      const nextReview = new Date();
+      nextReview.setMinutes(nextReview.getMinutes() + interval);
+
+      await apiClient.updateCard({
+        ...currentCard,
+        due: nextReview,
+        state: 'Learning'
+      });
+
+      if (evaluationIndex < cardsForEvaluation.length - 1) {
+        setEvaluationIndex(prev => prev + 1);
+        setShowTranslation(false);
+      } else {
+        setReviewState('completed');
+      }
+    } catch (error) {
+      console.error('Failed to update card:', error);
+      toast.error('Failed to save evaluation');
+    }
+  };
 
   const renderDeckSelection = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-primary-900">选择卡组</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-primary-900">选择复习内容</h2>
+          <p className="text-primary-600 mt-1">选择要复习的牌组或复习所有到期卡片</p>
+        </div>
         {onBack && (
-          <button 
+          <button
             onClick={onBack}
             className="flex items-center space-x-2 text-primary-600 hover:text-primary-700 transition-colors"
           >
@@ -528,66 +600,105 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
         )}
       </div>
 
-      {decks.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-primary-600 mb-4">暂无可用卡组</div>
-          <p className="text-sm text-primary-500">请先创建一个卡组并添加卡片</p>
+      {/* 复习所有卡片选项 */}
+      <div className="card-industrial p-6 hover:shadow-lg transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-primary-900 mb-2">复习所有到期卡片</h3>
+            <p className="text-primary-600">复习所有牌组中的到期卡片</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            {/* Reset Button */}
+            <button
+              onClick={() => handleResetDeckCards(null)}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
+              title="重置所有卡片进度"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="text-sm font-medium">重置进度</span>
+            </button>
+            {/* Review Button */}
+            <button
+              onClick={() => startReview(null)}
+              className="flex items-center space-x-2 px-6 py-2 bg-accent-600 text-white rounded-md hover:bg-accent-700 transition-colors"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-medium">开始复习</span>
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {decks.map((deck) => (
-            <div key={deck.id} className="card-industrial p-6 space-y-4">
+      </div>
+
+      {/* 各个牌组选项 */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-primary-900">或选择特定牌组</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {decks.map(deck => (
+            <div 
+              key={deck.id}
+              className="card-industrial p-4 hover:shadow-lg transition-shadow"
+            >
+              <h4 className="font-semibold text-primary-900 mb-1">{deck.name}</h4>
+              {deck.description && (
+                <p className="text-sm text-primary-600 mb-3">{deck.description}</p>
+              )}
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-primary-900">{deck.name}</h3>
-                                 <span className="text-sm text-primary-600">卡组</span>
-              </div>
-              
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => startReview(deck.id)}
-                  className="flex-1 btn-primary"
-                >
-                  开始复习
-                </button>
-                
-                <button
-                  onClick={() => handleResetDeckCards(deck.id)}
-                  className="btn-secondary"
-                  title="重置卡片状态"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
+                <div className="text-xs text-primary-500">
+                  点击按钮开始复习此牌组
+                </div>
+                <div className="flex items-center space-x-2">
+                  {/* Reset Button for Deck */}
+                  <button
+                    onClick={() => handleResetDeckCards(deck.id)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-red-50 text-red-600 rounded text-xs hover:bg-red-100 transition-colors"
+                    title={`重置 ${deck.name} 的所有卡片进度`}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>重置</span>
+                  </button>
+                  {/* Review Button for Deck */}
+                  <button
+                    onClick={() => startReview(deck.id)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-accent-600 text-white rounded text-xs hover:bg-accent-700 transition-colors"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    <span>复习</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 
   const renderLoading = () => (
-    <div className="flex items-center justify-center py-12">
-      <div className="flex items-center space-x-3 text-primary-600">
-        <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-lg font-medium">加载中...</span>
+    <div className="text-center py-16">
+      <div className="flex items-center justify-center space-x-3 text-primary-600">
+        <RotateCcw className="w-8 h-8 animate-spin" />
+        <span className="text-lg font-medium">正在加载复习卡片...</span>
       </div>
     </div>
   );
 
   const renderNoCards = () => (
-    <div className="text-center py-12 space-y-4">
-      <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
-      <h3 className="text-xl font-semibold text-primary-900">恭喜！</h3>
-      <p className="text-primary-600">当前卡组没有需要复习的卡片</p>
+    <div className="text-center py-16">
+      <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />
+      <h3 className="text-xl font-bold text-primary-900 mb-2">暂无到期卡片</h3>
+      <p className="text-primary-600 mb-6">
+        {selectedDeckId ? '该牌组' : '所有牌组'}中暂时没有需要复习的卡片
+      </p>
       <button
         onClick={resetReview}
         className="btn-primary"
       >
-        重新选择卡组
+        重新选择
       </button>
     </div>
   );
 
+  // Task 3.1: 新的任务界面渲染函数
   const renderTaskInterface = () => {
     const currentCard = getCurrentCard();
     console.log('DEBUG: renderTaskInterface called');
@@ -610,14 +721,24 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </div>
           </div>
           
-          {/* 提示图标 */}
+          {/* Phase 2: 浮窗提示图标 */}
           <div 
             className="absolute top-6 right-6 cursor-pointer p-2 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors z-10"
-            onClick={handleEditCard}
-            title="编辑卡片"
+            onMouseEnter={() => setIsHintVisible(true)}
+            onMouseLeave={() => setIsHintVisible(false)}
+            title="查看提示"
           >
             <Lightbulb className="w-5 h-5 text-yellow-600" />
           </div>
+
+          {/* Phase 2: 浮窗提示内容 */}
+          {isHintVisible && (
+            <HintPopup
+              english={pendingReferenceTranslation}
+              notes={pendingStudyNotes}
+              className="right-6 top-16"
+            />
+          )}
           
           <TaskDisplay originalText={currentCard.note.fields.CtoE?.chinese || ''} />
           <TranslationInput 
@@ -650,14 +771,24 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             </div>
           </div>
           
-          {/* 提示图标 */}
+          {/* Phase 2: 浮窗提示图标 */}
           <div 
             className="absolute top-6 right-6 cursor-pointer p-2 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors z-10"
-            onClick={handleEditCard}
-            title="编辑卡片"
+            onMouseEnter={() => setIsHintVisible(true)}
+            onMouseLeave={() => setIsHintVisible(false)}
+            title="查看提示"
           >
             <Lightbulb className="w-5 h-5 text-yellow-600" />
           </div>
+
+          {/* Phase 2: 浮窗提示内容 */}
+          {isHintVisible && (
+            <HintPopup
+              english={pendingReferenceTranslation}
+              notes={pendingStudyNotes}
+              className="right-6 top-16"
+            />
+          )}
           
           <EvaluationDisplay
             originalText={currentCard.note.fields.CtoE?.chinese || ''}
@@ -690,8 +821,21 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
       
       return (
         <div className="flex h-screen">
+          {/* SidePanel for task mode */}
+          <SidePanel
+            referenceTranslation={pendingReferenceTranslation}
+            studyNotes={pendingStudyNotes}
+            isOpen={isSidePanelOpen}
+            isDirty={hasUnsavedChanges}
+            isSaving={isSaving}
+            onToggle={() => setIsSidePanelOpen(!isSidePanelOpen)}
+            onReferenceChange={(content) => handleNoteFieldUpdate('english', content)}
+            onNotesChange={(content) => handleNoteFieldUpdate('notes', content)}
+            onSave={handleSaveChanges}
+          />
+
           {/* 主要内容区域 - 任务模式 */}
-          <div className="flex-1">
+          <div className={`flex-1 transition-all duration-300 ${isSidePanelOpen ? 'mr-[300px]' : 'mr-0'}`}>
             <div className="flex items-center justify-between p-6 border-b border-primary-200">
               <button
                 onClick={resetReview}
@@ -735,8 +879,21 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     // 传统复习模式
     return (
       <div className="flex h-screen">
+        {/* 编辑面板 */}
+        <SidePanel
+          referenceTranslation={pendingReferenceTranslation}
+          studyNotes={pendingStudyNotes}
+          isOpen={isSidePanelOpen}
+          isDirty={hasUnsavedChanges}
+          isSaving={isSaving}
+          onToggle={() => setIsSidePanelOpen(!isSidePanelOpen)}
+          onReferenceChange={(content) => handleNoteFieldUpdate('english', content)}
+          onNotesChange={(content) => handleNoteFieldUpdate('notes', content)}
+          onSave={handleSaveChanges}
+        />
+
         {/* 主要内容区域 */}
-        <div className="flex-1">
+        <div className={`flex-1 transition-all duration-300 ${isSidePanelOpen ? 'mr-[300px]' : 'mr-0'}`}>
           <div className="max-w-4xl mx-auto p-6 space-y-6">
             {/* 模式状态指示器 */}
             <div className="flex justify-center mb-4">
@@ -784,18 +941,28 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
                 showAnswer={reviewState === 'answer'}
                 onNoteChange={handleNoteUpdate}
                 editedNotes={editedNotes}
-                isDirty={false}
-                onSave={() => {}}
+                isDirty={isNoteDirty}
+                onSave={handleSaveChanges}
               />
               
-              {/* 提示图标 */}
+              {/* Phase 2: 浮窗提示图标 */}
               <div 
                 className="absolute top-4 right-4 cursor-pointer p-2 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors"
-                onClick={handleEditCard}
-                title="编辑卡片"
+                onMouseEnter={() => setIsHintVisible(true)}
+                onMouseLeave={() => setIsHintVisible(false)}
+                title="查看提示"
               >
                 <Lightbulb className="w-5 h-5 text-yellow-600" />
               </div>
+
+              {/* Phase 2: 浮窗提示内容 */}
+              {isHintVisible && (
+                <HintPopup
+                  english={pendingReferenceTranslation}
+                  notes={pendingStudyNotes}
+                  className="right-4 top-16"
+                />
+              )}
             </div>
 
             {/* 控制按钮区域 */}
@@ -818,21 +985,89 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
     );
   };
 
+  const renderEvaluation = () => {
+    const currentCard = cardsForEvaluation[evaluationIndex];
+    if (!currentCard) return null;
 
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Evaluate Your Understanding</h2>
+          <p className="text-gray-600 mb-8">
+            Card {evaluationIndex + 1} of {cardsForEvaluation.length}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+          <div className="text-lg font-medium">{currentCard.note.fields.CtoE?.chinese || '内容加载失败'}</div>
+          
+          {!showTranslation ? (
+            <button
+              onClick={handleShowTranslation}
+              className="w-full py-2 text-blue-600 hover:text-blue-800 focus:outline-none"
+            >
+              Show Translation
+            </button>
+          ) : (
+            <div className="text-gray-700 pt-4 border-t">
+              {currentCard.note.fields.CtoE?.english || '内容加载失败'}
+            </div>
+          )}
+
+          {showTranslation && (
+            <div className="flex justify-center space-x-4 pt-6">
+              <button
+                onClick={() => handleEvaluationComplete('hard')}
+                className="px-6 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+              >
+                Hard
+              </button>
+              <button
+                onClick={() => handleEvaluationComplete('medium')}
+                className="px-6 py-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200"
+              >
+                Medium
+              </button>
+              <button
+                onClick={() => handleEvaluationComplete('easy')}
+                className="px-6 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200"
+              >
+                Easy
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderCompleted = () => (
-    <div className="text-center py-12 space-y-6">
-      <CheckCircle className="w-24 h-24 text-green-500 mx-auto" />
-      <div>
-        <h3 className="text-2xl font-bold text-primary-900 mb-2">复习完成！</h3>
-        <p className="text-primary-600">已完成 {reviewedCards} 张卡片的复习</p>
+    <div className="text-center py-16">
+      <CheckCircle className="w-20 h-20 mx-auto text-green-500 mb-6" />
+      <h3 className="text-2xl font-bold text-primary-900 mb-4">复习完成！</h3>
+      <p className="text-lg text-primary-600 mb-2">
+        本次复习了 {reviewedCards} 张卡片
+      </p>
+      <p className="text-primary-500 mb-8">
+        系统已根据你的评分安排下次复习时间
+      </p>
+      
+      <div className="space-x-4">
+        <button
+          onClick={resetReview}
+          className="btn-primary"
+        >
+          再次复习
+        </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="btn-secondary"
+          >
+            返回首页
+          </button>
+        )}
       </div>
-      <button
-        onClick={resetReview}
-        className="btn-primary"
-      >
-        返回卡组选择
-      </button>
     </div>
   );
 
@@ -842,74 +1077,26 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
         return renderDeckSelection();
       case 'loading':
         return renderLoading();
-      case 'no-cards':
-        return renderNoCards();
       case 'question':
       case 'answer':
+        return renderReviewInterface();
       case 'task-question':
       case 'task-evaluation':
-        return renderReviewInterface();
-
+        return renderReviewInterface(); // 任务模式也使用renderReviewInterface
+      case 'evaluation':
+        return renderEvaluation();
       case 'completed':
         return renderCompleted();
+      case 'no-cards':
+        return renderNoCards();
       default:
-        return <div>未知状态</div>;
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-primary-50">
+    <div className="space-y-6">
       {renderCurrentState()}
-      
-      {/* Phase 2: 模态框结构 */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* 背景遮罩 */}
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => setIsEditModalOpen(false)}
-          />
-          
-          {/* 模态框内容 */}
-          <div className="relative w-full max-w-4xl mx-4 max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden">
-            {/* 模态框头部 */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">编辑卡片</h2>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            {/* 模态框内容区域 */}
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-              {(() => {
-                const currentCard = getCurrentCard();
-                if (!currentCard) {
-                  return (
-                    <div className="p-6 text-center text-gray-500">
-                      无法加载卡片信息
-                    </div>
-                  );
-                }
-                
-                return (
-                  <NoteEditor
-                    deckId={currentCard.deckId}
-                    noteId={currentCard.noteId}
-                    onBack={() => setIsEditModalOpen(false)}
-                    onNoteSaved={handleNoteUpdateAndRefresh}
-                  />
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }; 
