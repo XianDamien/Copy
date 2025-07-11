@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 export interface ProcessedTextResult {
   success: boolean;
   data?: Array<{
@@ -10,12 +8,9 @@ export interface ProcessedTextResult {
 }
 
 export class GeminiService {
-  private genAI: GoogleGenerativeAI | null = null;
-
-  constructor(apiKey?: string) {
-    if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    }
+  constructor() {
+    // 移除了对@google/generative-ai SDK的依赖
+    // 改用原生fetch API实现
   }
 
   /**
@@ -23,14 +18,40 @@ export class GeminiService {
    */
   async validateApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
       
-      // 发送一个简单的测试请求
-      const result = await model.generateContent("Hello");
-      const response = await result.response;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: "Hello"
+            }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API密钥验证失败:', response.status, errorData);
+        
+        if (response.status === 400) {
+          return { valid: false, error: "API密钥格式无效" };
+        } else if (response.status === 403) {
+          return { valid: false, error: "API密钥无效或权限被拒绝" };
+        } else if (response.status === 429) {
+          return { valid: false, error: "API配额已用完" };
+        } else {
+          return { valid: false, error: `验证失败: HTTP ${response.status}` };
+        }
+      }
+
+      const data = await response.json();
       
-      if (response.text()) {
+      if (data.candidates && data.candidates.length > 0) {
         return { valid: true };
       } else {
         return { valid: false, error: "API响应异常" };
@@ -38,12 +59,8 @@ export class GeminiService {
     } catch (error: any) {
       console.error('API密钥验证失败:', error);
       
-      if (error.message?.includes('API_KEY_INVALID')) {
-        return { valid: false, error: "API密钥无效" };
-      } else if (error.message?.includes('QUOTA_EXCEEDED')) {
-        return { valid: false, error: "API配额已用完" };
-      } else if (error.message?.includes('PERMISSION_DENIED')) {
-        return { valid: false, error: "API访问权限被拒绝" };
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        return { valid: false, error: "网络连接失败，请检查网络连接" };
       } else {
         return { valid: false, error: `验证失败: ${error.message || '未知错误'}` };
       }
@@ -62,8 +79,7 @@ export class GeminiService {
         };
       }
 
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
 
       const prompt = `
 请分析以下文本，自动识别其中的中英文句子对，并将它们配对成学习卡片。
@@ -87,9 +103,57 @@ ${text}
 ]
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const responseText = response.text();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('AI文本处理失败:', response.status, errorData);
+        
+        if (response.status === 400) {
+          return {
+            success: false,
+            error: "请求格式错误，请稍后重试"
+          };
+        } else if (response.status === 403) {
+          return {
+            success: false,
+            error: "API密钥无效，请检查设置"
+          };
+        } else if (response.status === 429) {
+          return {
+            success: false,
+            error: "API配额已用完，请稍后再试"
+          };
+        } else {
+          return {
+            success: false,
+            error: `处理失败: HTTP ${response.status}`
+          };
+        }
+      }
+
+      const data = await response.json();
+      
+      if (!data.candidates || data.candidates.length === 0) {
+        return {
+          success: false,
+          error: "AI未返回有效响应"
+        };
+      }
+
+      const responseText = data.candidates[0].content.parts[0].text;
 
       // 尝试解析JSON响应
       try {
@@ -111,8 +175,8 @@ ${text}
           typeof item === 'object' && 
           typeof item.front === 'string' && 
           typeof item.back === 'string' &&
-          item.front.trim().length >= 3 &&
-          item.back.trim().length >= 3
+          item.front.trim().length >= 2 &&
+          item.back.trim().length >= 2
         );
 
         if (validCards.length === 0) {
@@ -138,20 +202,10 @@ ${text}
     } catch (error: any) {
       console.error('AI文本处理失败:', error);
 
-      if (error.message?.includes('API_KEY_INVALID')) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
         return {
           success: false,
-          error: "API密钥无效，请检查设置"
-        };
-      } else if (error.message?.includes('QUOTA_EXCEEDED')) {
-        return {
-          success: false,
-          error: "API配额已用完，请稍后再试"
-        };
-      } else if (error.message?.includes('PERMISSION_DENIED')) {
-        return {
-          success: false,
-          error: "API访问权限被拒绝"
+          error: "网络连接失败，请检查网络连接"
         };
       } else {
         return {

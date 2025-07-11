@@ -10,6 +10,7 @@ import type {
   Card,
   ReviewLog,
   DeckStatistics,
+  AudioStore,
   LanGearDBSchema
 } from '../shared/types';
 import { DEFAULT_FSRS_CONFIG } from '../shared/types';
@@ -705,6 +706,64 @@ export class DatabaseService {
     const db = this.ensureDatabase();
     const rawLogs = await db.getAllFromIndex('reviewLogs', 'cardId', cardId);
     return rawLogs.map(log => this.convertDatesInReviewLog(log));
+  }
+
+  // ==================== 音频管理 ====================
+
+  /**
+   * 添加音频片段到 AudioStore
+   */
+  async addAudioClip(audioData: Blob, mimeType: string = 'audio/mp3', duration?: number): Promise<string> {
+    const db = this.ensureDatabase();
+    const id = crypto.randomUUID();
+    const newAudio: AudioStore = {
+      id,
+      audioData,
+      mimeType,
+      duration,
+      createdAt: new Date(),
+    };
+    
+    await db.put('audioStore', newAudio);
+    return id;
+  }
+
+  /**
+   * 根据ID获取音频片段
+   */
+  async getAudioClip(id: string): Promise<AudioStore | undefined> {
+    const db = this.ensureDatabase();
+    const rawAudio = await db.get('audioStore', id);
+    
+    if (!rawAudio) {
+      return undefined;
+    }
+    
+    return {
+      ...rawAudio,
+      createdAt: typeof rawAudio.createdAt === 'string' ? new Date(rawAudio.createdAt) : rawAudio.createdAt,
+    };
+  }
+
+  /**
+   * 删除音频片段
+   */
+  async deleteAudioClip(id: string): Promise<void> {
+    const db = this.ensureDatabase();
+    await db.delete('audioStore', id);
+  }
+
+  /**
+   * 获取所有音频片段（用于管理）
+   */
+  async getAllAudioClips(): Promise<AudioStore[]> {
+    const db = this.ensureDatabase();
+    const rawAudios = await db.getAll('audioStore');
+    
+    return rawAudios.map(audio => ({
+      ...audio,
+      createdAt: typeof audio.createdAt === 'string' ? new Date(audio.createdAt) : audio.createdAt,
+    }));
   }
 
   // ==================== 统计功能 ====================

@@ -13,7 +13,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@plussub/srt-vtt-parser": "^2.0.5",
     "@tiptap/core": "^2.14.0",
     "@tiptap/extension-bubble-menu": "^2.14.0",
     "@tiptap/extension-highlight": "^2.14.0",
@@ -26,7 +26,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.2",
-    "ts-fsrs": "^3.5.0"
+    "ts-fsrs": "^3.5.0",
+    "wavesurfer.js": "^7.9.9"
   },
   "devDependencies": {
     "@samrum/vite-plugin-web-extension": "^5.1.0",

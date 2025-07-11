@@ -103,6 +103,7 @@ export interface Card {
   lapses: number;
   lastReview?: Date;
   learningStep: number; // Task-driven mode: 0=task pending, 1=task complete. Traditional mode: tracks step index
+  audioId?: string; // Optional reference to audio clip in AudioStore
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,40 +1,255 @@
-# LanGear 开发阶段总结 (v2.1)
+# LanGear 开发阶段规划
 
-## 项目发展历程
-LanGear项目经历了六个主要开发阶段，从一个基础的SRS工具，演进为一个以“任务驱动”为核心理念的智能化学习平台。
+**文档版本**: 2025年7月11日  
+**当前状态**: Phase 2 完成，准备进入 Phase 3
 
-### Phase 1-4: 基础奠定与理念确立 (Tasks 1-26)
--   **主要成就**: 完成了项目的技术选型（React, TS, Vite）、FSRS算法的成功集成、数据库架构设计，并最终在Phase 4确立了“任务驱动学习”的核心产品理念，为后续的革命性重构埋下伏笔。
+## 开发阶段概览
+
+LanGear项目采用分阶段开发方法，每个阶段都有明确的目标和可交付成果。以下是完整的开发路线图。
+
+## ✅ Phase 1: 基础架构建设 (2024年6月-12月)
+
+### 目标
+建立稳固的技术基础和核心SRS功能
+
+### 主要成就
+- **SRS系统**: 完整的间隔重复算法实现
+- **数据架构**: IndexedDB存储方案设计
+- **UI框架**: React + TypeScript + Tailwind CSS
+- **测试基础**: Vitest测试框架集成
+- **Chrome扩展**: 基础扩展架构和权限配置
+
+### 技术里程碑
+```typescript
+// 核心数据模型建立
+interface Note {
+  id: string;
+  front: string;
+  back: string;
+  deckId: string;
+  createdAt: Date;
+}
+
+interface Card {
+  id: string;
+  noteId: string;
+  cardType: 'basic' | 'reversed';
+  reviewData: FSRSReviewData;
+}
+```
+
+### 关键解决问题
+- IndexedDB异步操作封装
+- Chrome扩展多上下文环境处理
+- 基础UI组件库建立
 
 ---
 
-### Phase 5: AI集成与基础修复 (Tasks 27-38)
--   **核心目标**: 将AI能力融入内容创作流程，同时清理在集成过程中暴露的大量技术债。
--   **主要成就**:
-    1.  **实现AI批量导入**: 成功集成了Gemini API，实现了从“粘贴大段双语课文”到“自动对齐并生成格式化卡片”的核心功能。这一定义在`task-33`和`task-34`中被明确和实现。
-    2.  **大量编译修复**: 这个阶段伴随着密集的TypeScript错误修复（`task-29`, `task-31`, `task-32`, `task-36`），是项目从快速原型走向工程化的一个痛苦但必要的过程。
-    3.  **解决测试Mock难题**: 在`task-35`中，团队攻克了`vitest`在ES模块下的mock难题，为后续的测试驱动开发扫清了障碍。
-    4.  **修复关键权限问题**: `task-38`解决了Chrome扩展的`host_permissions`和CSP问题，使得AI功能最终能够在真实的扩展环境中运行。
--   **阶段性成果**: 交付了核心的AI辅助内容生成功能，并显著提升了代码库的稳定性和类型安全。
+## ✅ Phase 2: 智能化增强 (2024年12月-2025年6月)
 
-### Phase 6: 核心复习体验重构 (Tasks 39-48)
--   **核心目标**: 将“任务驱动”理念从一个概念落地为具体、流畅、高效的用户体验，是项目历史上最大规模的一次重构。
--   **主要成就**:
-    1.  **界面完全重构**: 在`task-39`和`task-40`中，将庞大的`Review.tsx`组件分解为多个单一职责的子组件（如`CardDisplay`, `ReviewControls`, `SidePanel`）。
-    2.  **引入任务驱动UI**: `task-41`是此阶段的里程碑，创建了全新的`TaskDisplay`, `EvaluationDisplay`等组件，构建了“任务-评估”新流程。
-    3.  **优化保存逻辑**: 在`task-40`中，根据用户反馈，将复杂的防抖自动保存，重构为更直观、可靠的“手动保存+导航时自动保存”模式。
-    4.  **修复与打磨**: 后续的`task-42`到`task-48`持续修复和打磨新界面的各种问题，如HTML渲染、导航逻辑、键盘快捷键冲突、UI一致性等。
--   **阶段性成果**: 打造了业界领先的、高度交互的任务驱动型学习界面，使LanGear的产品理念和用户体验最终成型。
+### 目标
+集成AI服务，实现智能内容处理和任务驱动学习
 
-## 各阶段对比分析
+### 主要成就
+- **AI集成**: Gemini API智能翻译服务
+- **批量导入**: AI驱动的双语文本对齐
+- **任务模式**: 革命性的任务驱动学习界面
+- **组件重构**: 高度模块化的React组件架构
+- **技术债清理**: 解决关键性能和兼容性问题
 
-| 指标 | Phase 1-4 (奠基期) | Phase 5 (AI集成期) | Phase 6 (体验重构期) |
-|---|---|---|---|
-| **核心产出** | 混合学习架构 | AI双语对齐 | 高交互任务驱动UI |
-| **主要挑战** | 架构设计 | API集成 & 编译修复 | 复杂状态管理 & UI重构 |
-| **代码质量** | 良好 | 提升至优秀 | 卓越 |
-| **测试覆盖** | 部分 | 核心逻辑覆盖 | 新组件全面覆盖 |
-| **用户体验** | 创新 | 功能增强 | 革命性提升 |
+### 技术突破
+```typescript
+// AI服务零依赖集成
+class GeminiService {
+  async translateText(text: string, targetLang: string): Promise<string> {
+    const response = await fetch(this.apiEndpoint, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(this.buildRequest(text, targetLang))
+    });
+    return this.parseResponse(response);
+  }
+}
+
+// 任务驱动UI组件
+interface TaskDrivenProps {
+  card: Card;
+  onTaskComplete: (result: TaskResult) => void;
+  mode: 'task' | 'review';
+}
+```
+
+### 关键解决问题
+- **ReferenceError: window is not defined**: 替换第三方SDK为原生fetch
+- **TypeScript编译错误**: 统一类型定义系统
+- **测试Mock问题**: 建立ES模块兼容的mock模式
+- **组件耦合**: Review.tsx组件完全重构
 
 ---
-*最后更新：2025年6月25日*
+
+## 🚀 Phase 3: 音频增强功能 (2025年7月-9月)
+
+### 目标
+实现音频+字幕的批量制卡功能，开创全新的多媒体学习体验
+
+### 核心功能规划
+
+#### 3.1 音频可视化与切割
+```typescript
+// WaveSurfer.js集成
+interface AudioSegment {
+  id: string;
+  startTime: number;
+  endTime: number;
+  audioBlob: Blob;
+  subtitle: string;
+  translation?: string;
+}
+
+class AudioProcessor {
+  private wavesurfer: WaveSurfer;
+  private regions: WaveSurfer.Region[];
+  
+  loadAudioFile(file: File): Promise<void>;
+  addRegion(start: number, end: number): WaveSurfer.Region;
+  extractSegment(region: WaveSurfer.Region): Promise<Blob>;
+}
+```
+
+#### 3.2 字幕解析与同步
+```typescript
+// 字幕文件处理
+interface SubtitleEntry {
+  startTime: number;
+  endTime: number;
+  text: string;
+  index: number;
+}
+
+class SubtitleParser {
+  parseSRT(content: string): SubtitleEntry[];
+  parseVTT(content: string): SubtitleEntry[];
+  syncWithAudio(subtitles: SubtitleEntry[], audioDuration: number): SubtitleEntry[];
+}
+```
+
+#### 3.3 批量AI翻译流程
+```typescript
+// 智能批量处理
+class BatchProcessor {
+  async processAudioSubtitles(
+    audioFile: File,
+    subtitleFile: File,
+    segments: AudioSegment[]
+  ): Promise<ProcessedCard[]> {
+    // 1. 解析字幕文件
+    const subtitles = await this.parseSubtitles(subtitleFile);
+    
+    // 2. 提取音频片段
+    const audioSegments = await this.extractAudioSegments(audioFile, segments);
+    
+    // 3. 批量AI翻译
+    const translations = await this.batchTranslate(
+      subtitles.map(s => s.text)
+    );
+    
+    // 4. 生成学习卡片
+    return this.createCards(audioSegments, subtitles, translations);
+  }
+}
+```
+
+### 技术栈选择
+- **音频可视化**: wavesurfer.js (Trust Score: 8.2)
+- **字幕解析**: @plussub/srt-vtt-parser (TypeScript友好)
+- **音频处理**: Web Audio API (原生浏览器支持)
+- **存储优化**: IndexedDB Blob存储 (离线访问)
+
+### 开发里程碑
+
+#### 里程碑 3.1: 基础设施 (7月第1-2周)
+- [ ] 扩展数据库schema支持音频存储
+- [ ] 实现文件上传和验证系统
+- [ ] 集成wavesurfer.js音频播放器
+
+#### 里程碑 3.2: 字幕处理 (7月第3-4周)
+- [ ] 集成字幕解析库
+- [ ] 实现音频-字幕时间轴同步
+- [ ] 建立字幕显示和编辑界面
+
+#### 里程碑 3.3: 可视化切割 (8月第1-2周)
+- [ ] 实现音频波形可视化
+- [ ] 添加拖拽式区域选择功能
+- [ ] 实现实时音频片段预览
+
+#### 里程碑 3.4: AI翻译集成 (8月第3-4周)
+- [ ] 扩展Gemini API支持批量翻译
+- [ ] 实现翻译质量验证机制
+- [ ] 添加翻译编辑和优化功能
+
+#### 里程碑 3.5: 用户体验优化 (9月第1-2周)
+- [ ] 添加进度指示器和状态反馈
+- [ ] 实现错误处理和恢复机制
+- [ ] 优化大文件处理性能
+
+---
+
+## 🔮 Phase 4: 高级学习功能 (2025年9月-12月)
+
+### 目标
+基于音频功能，开发新一代学习模式
+
+### 规划功能
+
+#### 4.1 句子复述卡片
+- 音频播放 → 用户复述 → STT识别 → 差异对比
+- 语音评分和发音分析
+- 个性化发音改进建议
+
+#### 4.2 语音交互学习
+- Web Speech API集成
+- 实时语音识别和反馈
+- 语音命令控制学习流程
+
+#### 4.3 智能学习分析
+- 学习行为数据挖掘
+- 个性化学习路径推荐
+- 弱点识别和针对性练习
+
+---
+
+## 🌟 Phase 5: 生态系统扩展 (2026年)
+
+### 长期愿景
+- **多平台支持**: 移动端APP开发
+- **云端同步**: 跨设备数据同步
+- **社区功能**: 内容分享和协作学习
+- **企业版本**: 团队学习管理功能
+
+---
+
+## 开发方法论
+
+### 迭代开发原则
+1. **用户反馈驱动**: 每个功能都基于真实用户需求
+2. **技术债管理**: 及时清理技术债务，保持代码质量
+3. **测试优先**: 新功能开发前建立测试框架
+4. **渐进式发布**: 使用Feature Flag控制功能发布
+
+### 质量保证
+- **代码审查**: 每个PR都需要完整的代码审查
+- **自动化测试**: 单元测试 + 集成测试 + E2E测试
+- **性能监控**: 关键指标持续监控
+- **用户体验测试**: 真实场景下的可用性测试
+
+### 风险管理
+- **技术风险**: 新技术引入前的充分调研和原型验证
+- **兼容性风险**: 多浏览器和扩展环境测试
+- **性能风险**: 大数据量场景下的性能测试
+- **用户体验风险**: 渐进式功能发布和A/B测试
+
+---
+
+**总结**: LanGear的分阶段开发策略确保了项目的稳定发展和技术创新。每个阶段都建立在前一阶段的成果之上，形成了强大的技术积累和产品优势。
+
+**下次更新**: Phase 3 完成后进行全面回顾和Phase 4详细规划 

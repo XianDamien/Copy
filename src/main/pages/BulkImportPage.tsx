@@ -3,6 +3,7 @@ import { ArrowLeft, Upload, Eye, AlertCircle, CheckCircle, Key, Shield } from 'l
 import toast from 'react-hot-toast';
 import { ApiClient } from '../../shared/utils/api';
 import type { Deck } from '../../shared/types';
+import { AudioSubtitleImporter } from '../components/import/AudioSubtitleImporter';
 
 interface BulkImportPageProps {
   onBack: () => void;
@@ -16,7 +17,10 @@ interface ParsedCard {
   error?: string;
 }
 
+type ImportMode = 'text' | 'audio';
+
 export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImportComplete }) => {
+  const [mode, setMode] = useState<ImportMode>('text');
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [inputText, setInputText] = useState('');
@@ -283,7 +287,10 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
         <div>
           <h2 className="text-2xl font-bold text-primary-900">批量导入卡片</h2>
           <p className="text-primary-600 mt-1">
-            粘贴双语文本，AI将自动为您对齐并生成卡片
+            {mode === 'text' 
+              ? '粘贴双语文本，AI将自动为您对齐并生成卡片' 
+              : '上传音频和字幕文件，创建带音频的学习卡片'
+            }
           </p>
         </div>
         <button
@@ -295,7 +302,40 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
         </button>
       </div>
 
-      {/* Deck Selection */}
+      {/* Mode Selector */}
+      <div className="card-industrial p-6">
+        <h3 className="text-lg font-semibold text-primary-900 mb-4">导入模式</h3>
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setMode('text')}
+            className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+              mode === 'text'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+            }`}
+          >
+            <div className="text-center">
+              <div className="text-lg font-medium mb-1">📝 文本导入</div>
+              <div className="text-sm">双语文本批量导入</div>
+            </div>
+          </button>
+          <button
+            onClick={() => setMode('audio')}
+            className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+              mode === 'audio'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+            }`}
+          >
+            <div className="text-center">
+              <div className="text-lg font-medium mb-1">🎵 音频导入</div>
+              <div className="text-sm">音频+字幕批量制卡</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Deck Selection (共享) */}
       <div className="card-industrial p-6">
         <h3 className="text-lg font-semibold text-primary-900 mb-4">选择目标牌组</h3>
         <div className="flex items-center space-x-4">
@@ -320,8 +360,11 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
         </div>
       </div>
 
-      {/* Gemini AI Configuration */}
-      <div className="card-industrial p-6">
+      {/* 条件渲染：文本导入模式 */}
+      {mode === 'text' && (
+        <>
+          {/* Gemini AI Configuration */}
+          <div className="card-industrial p-6">
         <h3 className="text-lg font-semibold text-primary-900 mb-4 flex items-center space-x-2">
           <Key className="w-5 h-5" />
           <span>Gemini AI 配置</span>
@@ -496,6 +539,13 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
             </div>
           )}
         </div>
+      )}
+        </>
+      )}
+
+      {/* 条件渲染：音频导入模式 */}
+      {mode === 'audio' && (
+        <AudioSubtitleImporter onImportComplete={onImportComplete} />
       )}
     </div>
   );
