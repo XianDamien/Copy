@@ -1,4 +1,4 @@
-# LanGear Language Learning Extension
+# LanGear 智能语言学习扩展
 
 <div align="center">
 
@@ -15,273 +15,145 @@
 
 ## 🎯 项目概述
 
-LanGear是一个高效的Chrome扩展，采用工业风设计理念，为语言学习者提供智能化的记忆训练体验。基于科学的FSRS(Free Spaced Repetition Scheduler)算法，实现精准的复习调度，最大化学习效率。
+LanGear是一个为语言学习者设计的、运行于Chrome浏览器的高效学习工具。它深度集成了科学的FSRS间隔重复算法、AI驱动的学习辅助功能和创新的任务驱动学习模式，旨在最大限度地提高学习效率和知识保留率。
 
-### ✨ 核心特性
+本项目所有数据均存储于用户本地的IndexedDB中，确保了离线使用的流畅性和用户数据的绝对隐私。
 
-- 🧠 **FSRS智能算法** - 科学的间隔重复调度，优化记忆效果
-- 🎴 **多样化卡片模板** - 汉译英、回译、句子复述等专业模板
-- 📊 **数据可视化** - 学习热力图、遗忘曲线、进度统计
-- 🎨 **工业风UI设计** - 简洁高效的用户界面
-- 💾 **本地优先存储** - 基于IndexedDB的离线数据管理
-- 🔄 **Anki格式支持** - 兼容现有学习资源（后期实现）
-- 🎙️ **智能音频处理** - 录音回放、音频分段、语音转文字
+### 核心理念
+
+
+
+LanGear的灵感源自Anki，我们致力于借鉴其以卡片为基础的主动回忆训练和FSRS记忆算法等核心优势。项目旨在将学习训练与知识整理相结合，构建一个专门增强英语应用能力的训练平台。
+
+我们的核心方法是利用AI打造“可理解性输入”到“高质量输出”的完整学习闭环。未来，AI还将通过分析用户的学习数据，提供个性化的学习总结与规划建议，成为用户的专属学习顾问。
+
+1. 核心继承Anki: 我们将借鉴Anki的精髓，即以卡片为基础的主动回忆训练和科学的FSRS算法。
+2. 目标聚焦英语应用: 项目的最终目的是成为一个增强英语实际应用能力的专业训练工具，而不仅仅是背单词。
+3. AI驱动的学习闭环: 核心方法论是利用AI提供可理解性输入（如词汇、语法解释），然后鼓励用户进行输出（如翻译练习），并由AI对输出进行评估，形成一个完整的学习闭环。
+4. 长期AI高级功能: 未来，AI将扮演更重要的角色，通过分析用户的卡片习数据，提供个性化的学习报告和规划建议。
+
+## ✨ 核心特性
+
+- 🧠 **FSRS科学记忆算法** - 基于`ts-fsrs`库，实现精准、高效的复习调度，优化长期记忆。
+- 🤖 **AI辅助学习** - 集成Google Gemini API，提供智能批量制卡、内容解释和评估等功能。
+- 💡 **双学习模式** - 支持创新的“任务驱动”学习模式和可配置的“传统”学习步骤模式。
+- 📝 **富文本编辑** - 使用Tiptap编辑器，支持丰富的笔记格式。
+- 📂 **AI批量导入** - 从任意文本块中自动识别双语内容并一键生成卡片。
+- 🎵 **音频/字幕学习** - （开发中）支持通过音频和字幕文件进行多媒体学习。
+- 💾 **本地优先存储** - 所有数据存储在本地IndexedDB，支持离线访问。
+
+## ✨ 核心用户流程 (User Journey)
+
+为了让工程师更好地理解产品，以下是几个典型的用户使用场景：
+
+**场景一：首次使用 - 中译英（回译）任务**
+1. 用户在网上看到一篇感兴趣的英文文章/新概念英语文章。
+2. 用户将文章全文复制（字数少于500字），粘贴到LanGear的“批量导入”界面。
+3. AI先自动生成中文译文，将文本分割成“原文（英文）-译文（中文）”配对的句子，并以列表形式呈现。
+4. 用户审核AI生成的句子列表，取消勾选不希望进行回译练习的句子。
+5. 点击“确认导入”，系统为每个选中的句子创建一张**中译英（回译）**任务卡片，并存入一个新的牌组。所有卡片初始状态为“新卡片(New)”。
+
+**场景二：每日学习 - 任务与复习**
+1. 用户开始当天的学习。系统优先呈现**任务卡片 (Task Cards)**。
+2. **任务阶段**:
+   - 界面展示中文句子，要求用户翻译成英文。
+   - 用户在输入框中提交自己的翻译。
+   - AI Agent参照参考翻译（原英文句子）对用户的翻译进行评估，提供一个**参考分数**、**指出潜在错误**（语法、用词等），并**给出优化建议**。
+   - 用户参考AI的反馈，结合自己的感受，进行**FSRS自评**：
+     - 如果觉得很吃力或完全没思路，点击 **[重来]**。卡片仍然是任务卡。
+     - 如果成功完成了翻译，点击 **[良好]** 或 **[简单]**。这张卡片被视为**“毕业” (Graduate)**，状态转为“复习(Review)”，FSRS算法会为其计算出第一个（通常是1天或更长）复习周期。
+3. **复习阶段**:
+   - 当任务卡片全部完成后，系统呈现到期的**复习卡片 (Review Cards)**。
+   - 用户看到提示，回忆内容，然后点击“显示答案”。
+   - 对照答案，用户进行FSRS自评（[重来], [困难], [良好], [简单]）。
+     - 如果点击 **[重来]**，卡片状态变为“Lapsed”，并**重新进入任务阶段**，要求用户再次完成一次翻译任务来“重新毕业”。
+
+**场景三：专项训练 - 句子复述**
+1. 用户手动准备一个音频文件（如`.mp3`）和一个对应的字幕文件（如`.srt`或`.vtt`）。
+2. 用户在LanGear中创建一个“句子复述”牌组，并上传这两个文件。
+3. 系统解析文件，并将音频和字幕按句子切分、对齐。
+4. 开始学习时，卡片**只播放句子音频，不显示任何文本**。
+5. 用户听完后，录下自己的复述。系统使用STT（语音转文本）技术将录音转为文字，并显示出来。
+6. AI Agent对转录的文本与原文进行对比，指出**发音可能存在的问题**（尤其是元音）、流利度、语法等，并给出参考评价。
+7. 用户结合AI反馈进行自评。每完成约10个句子，系统会生成一个**阶段性小结**，总结常见问题并提供针对性建议。
+
+---
+
+## 🛠️ 技术栈与架构说明
+
+- **前端**: React 18, TypeScript, Vite, Tailwind CSS
+- **核心算法**: `ts-fsrs` (FSRS间隔重复算法库)
+- **数据存储**: **IndexedDB**。所有用户数据（卡片、配置、学习记录）均存储在本地，保证隐私和离线可用性。使用 `idb` 库进行异步操作。
+- **AI集成**:
+    - **模型**: 灵活接入，初期支持用户填入自己的API Key（如Google Gemini, OpenAI GPT等）。所有AI请求通过浏览器端 `fetch` 直接调用。
+    - **语音技术 (STT/TTS)**:
+        - **TTS (文本转语音)**: 优先使用浏览器内置的 `SpeechSynthesis` API，实现零成本发音。
+        - **STT (语音转文本)**: 集成第三方语音识别服务API。**需求：中等水平的转录精度即可**，目的是分析发音模式而非完美转录。
+- **富文本编辑**: Tiptap
+- **Chrome扩展**: `samrum/vite-plugin-web-extension`
+
+---
+
 
 ## 🛠️ 技术栈
 
-### 前端框架
-- **React 18** + **TypeScript** - 现代化前端开发
-- **Tailwind CSS** - 原子化CSS框架，支持工业风设计
-- **Zustand** - 轻量级状态管理
-
-### 构建工具
-- **Vite** - 快速构建工具
-- **@samrum/vite-plugin-web-extension** - Chrome扩展专用构建插件
-
-### 核心算法
-- **ts-fsrs** - TypeScript实现的FSRS算法库
-- **Chart.js** + **react-chartjs-2** - 数据可视化
-
-### 数据存储
-- **IndexedDB** + **idb** - 本地数据库存储
-- **Chrome Storage API** - 扩展配置存储
-
-### Chrome扩展API
-- **Manifest V3** - 最新扩展规范
-- **Service Worker** - 后台脚本处理
-- **Content Scripts** - 页面内容交互
-
-## 📁 项目结构
-
-```
-LanGear-Language-Extension/
-├── public/
-│   ├── manifest.json           # Chrome扩展配置
-│   ├── popup.html              # 弹窗页面
-│   ├── options.html            # 设置页面
-│   ├── main.html               # 主应用页面
-│   └── icons/                  # 扩展图标
-├── src/
-│   ├── background/             # Service Worker
-│   │   ├── index.ts           # 后台脚本入口
-│   │   ├── db.ts              # IndexedDB操作
-│   │   ├── fsrsService.ts     # FSRS算法服务
-│   │   └── types.ts           # 类型定义
-│   ├── content/                # Content Scripts
-│   │   ├── index.tsx          # 内容脚本入口
-│   │   └── ContentUI.tsx      # 划词助手UI
-│   ├── popup/                  # 弹窗应用
-│   │   ├── index.tsx          # 弹窗入口
-│   │   └── PopupApp.tsx       # 弹窗组件
-│   ├── options/                # 设置应用
-│   │   ├── index.tsx          # 设置入口
-│   │   └── OptionsApp.tsx     # 设置组件
-│   ├── main/                   # 主应用(SPA)
-│   │   ├── index.tsx          # 主应用入口
-│   │   ├── MainApp.tsx        # 主应用组件
-│   │   ├── components/        # 共享组件
-│   │   ├── pages/             # 页面组件
-│   │   │   ├── DeckList.tsx   # 牌组列表
-│   │   │   ├── Review.tsx     # 复习界面
-│   │   │   ├── Stats.tsx      # 数据统计
-│   │   │   └── NoteEditor.tsx # 笔记编辑
-│   │   └── routes.tsx         # 路由配置
-│   ├── shared/                 # 共享资源
-│   │   ├── types.ts           # 全局类型
-│   │   ├── constants.ts       # 常量定义
-│   │   └── utils.ts           # 工具函数
-│   └── assets/                 # 静态资源
-│       ├── styles/            # 样式文件
-│       └── images/            # 图片资源
-├── vite.config.ts              # Vite配置
-├── tsconfig.json               # TypeScript配置
-├── tailwind.config.js          # Tailwind配置
-├── package.json                # 项目配置
-└── README.md                   # 项目文档
-```
+- **前端框架**: **React 18** + **TypeScript**
+- **构建工具**: **Vite** + **@samrum/vite-plugin-web-extension**
+- **UI**: **Tailwind CSS** + **Lucide Icons**
+- **核心算法**: **ts-fsrs**
+- **AI服务**: **Google Gemini API** (通过原生 `fetch` 调用)
+- **数据存储**: **IndexedDB** + **idb** (异步封装)
+- **富文本编辑**: **Tiptap**
+- **音频处理**: **wavesurfer.js** + **@plussub/srt-vtt-parser**
+- **测试**: **Vitest** + **React Testing Library**
 
 ## 🗄️ 数据库设计
 
-### IndexedDB 存储架构
+项目使用IndexedDB存储所有数据，核心表结构如下：
 
-```typescript
-// 牌组表
-interface Deck {
-  id: number;
-  name: string;
-  fsrsConfig?: FSRSConfig;
-  createdAt: Date;
-  updatedAt: Date;
-}
+| 表名 (Object Store) | 主键 | 描述 | 核心字段 |
+| :--- | :--- | :--- | :--- |
+| `decks` | `id` (auto) | 存储牌组信息和FSRS配置 | `name`, `deckType` ('translation', 'retelling'), `fsrsConfig` |
+| `notes` | `id` (auto) | 存储笔记内容（卡片模板） | `deckId`, `noteType`, `fields` (e.g., {'Front': '中文', 'Back': 'English'}) |
+| `cards` | `id` (auto) | 存储卡片及其FSRS学习状态 | `noteId`, `due`, `stability`, `difficulty`, `state` ('New', 'Task', 'Review', 'Lapsed') |
+| `reviewLogs` | `id` (auto) | 记录每一次复习历史 | `cardId`, `rating`, `stateBefore`, `stateAfter`, `duration` |
+| `mediaAssets` | `id` (string/hash) | 存储音频文件和字幕数据 | `audioData` (Blob), `subtitleData` (string) |
 
-// 笔记表
-interface Note {
-  id: number;
-  deckId: number;
-  noteType: 'CtoE' | 'Retranslate' | 'SentenceParaphrase' | 'Article';
-  fields: Record<string, any>;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
 
-// 卡片表
-interface Card {
-  id: number;
-  noteId: number;
-  cardTemplate: string;
-  due: Date;
-  stability: number;
-  difficulty: number;
-  elapsedDays: number;
-  scheduledDays: number;
-  reps: number;
-  lapses: number;
-  state: 'new' | 'learning' | 'review' | 'relearning';
-  lastReview?: Date;
-}
+## �� 开发路线图
 
-// 复习日志表
-interface ReviewLog {
-  id: number;
-  cardId: number;
-  reviewTime: Date;
-  rating: 1 | 2 | 3 | 4; // Again | Hard | Good | Easy
-  stateBefore: string;
-  stateAfter: string;
-  stabilityBefore: number;
-  stabilityAfter: number;
-  difficultyBefore: number;
-  difficultyAfter: number;
-  interval: number;
-  lastInterval: number;
-}
+项目采用迭代开发模式。当前的开发焦点是完成以下 **Milestone 1** 的所有任务。
 
-// 音频存储表
-interface AudioStore {
-  id: string;
-  audioData: Blob;
-  mimeType: string;
-  createdAt: Date;
-}
-```
+---
 
-## 🚀 开发计划
+| 任务 | 状态 | 关键需求/备注 |
+| :--- | :--- | :--- |
+| **1. 任务+复习，FSRS核心学习循环** | ⏳ 待开发 | 接入实现FSRS算法，实现“任务驱动”的状态机。新卡和Lapsed卡进入“任务模式”，Review卡进入“复习模式”。 |
+| **2. 中译英（回译）任务模块** | ⏳ 待开发 | UI: 显示中文，提供输入框。逻辑: 提交后调用AI评估，并根据用户自评更新卡片状态。 |
+| **3. AI Agent集成** | ⏳ 待开发 | 创建一个可复用的AI服务模块，接收用户输入和任务类型，返回结构化的JSON评估结果。 |
+| **4. AI批量导入 (CSV/Text)** | ⏳ 待开发 | UI: 文本粘贴区。逻辑: 调用AI处理文本，生成预览列表，用户确认后批量创建Notes和Cards。 |
+| **5. 句子复述任务模块** | ⏳ 待开发 | UI: 音频播放/录制。逻辑: 集成STT API，调用AI进行对比分析，提供反馈。 |
+| **6. 文件处理 (音频/字幕)** | ⏳ 待开发 | 支持用户上传媒体文件，并在本地进行解析和存储到IndexedDB。 |
+| **7. 基础UI与数据展示** | ⏳ 待开发 | 主界面、牌组列表、每日学习统计、设置页面（用于输入API Key）。 |
 
-### Phase 1: 核心基础架构 (4-6周)
-
-#### 优先级：🔥 高优先级
-
-1. **项目初始化与环境配置**
-   - [x] 项目结构搭建
-   - [ ] Vite + Chrome Extension 配置
-   - [ ] TypeScript + Tailwind CSS 配置
-   - [ ] 开发环境热重载配置
-
-2. **数据库层实现**
-   - [ ] IndexedDB 架构设计
-   - [ ] idb 库集成
-   - [ ] CRUD 操作封装
-   - [ ] 数据迁移脚本
-
-3. **FSRS算法集成**
-   - [ ] ts-fsrs 库集成
-   - [ ] 参数配置系统
-   - [ ] 复习调度逻辑
-   - [ ] 数据分析接口
-
-4. **基础UI框架**
-   - [ ] 工业风设计系统
-   - [ ] 组件库搭建
-   - [ ] 路由系统配置
-   - [ ] 状态管理设置
-
-5. **牌组管理功能**
-   - [ ] 牌组CRUD操作
-   - [ ] 牌组列表界面
-   - [ ] 基础统计显示
-
-6. **汉译英卡片模板**
-   - [ ] 笔记创建界面
-   - [ ] 卡片渲染组件
-   - [ ] 复习界面基础版
-
-### Phase 2: 功能完善与可视化 (4-5周)
-
-#### 优先级：🟡 中优先级
-
-1. **卡片模板扩展**
-   - [ ] 回译(Retranslate)模板
-   - [ ] 句子复述基础版本
-   - [ ] 模板系统架构
-
-2. **数据可视化**
-   - [ ] Chart.js 集成
-   - [ ] 学习热力图
-   - [ ] 遗忘曲线分析
-   - [ ] 进度统计面板
-
-3. **用户界面优化**
-   - [ ] 响应式设计
-   - [ ] 暗色主题支持
-   - [ ] 动画效果
-   - [ ] 无障碍支持
-
-4. **音频功能基础**
-   - [ ] 音频播放器组件
-   - [ ] 录音功能实现
-   - [ ] 音频存储管理
-   - [ ] MP3格式支持
-
-### Phase 3: 高级功能与优化 (3-4周)
-
-#### 优先级：🟢 低优先级
-
-1. **AI功能集成**
-   - [ ] API配置管理
-   - [ ] Google/DeepSeek API集成
-   - [ ] 语音转文字功能
-   - [ ] 智能反馈系统
-
-2. **划词助手**
-   - [ ] Content Script开发
-   - [ ] Shadow DOM实现
-   - [ ] 词典API集成
-   - [ ] 浮层UI设计
-
-3. **数据导入导出**
-   - [ ] Anki格式支持
-   - [ ] JSON格式导入导出
-   - [ ] 数据备份功能
-   - [ ] 云同步接口预留
-
-4. **音频高级功能**
-   - [ ] 自动音频分段
-   - [ ] 音频质量优化
-   - [ ] 多格式支持
-   - [ ] 音频压缩算法
 
 ## ⚙️ 开发环境配置
 
 ### 1. 环境要求
 
-```bash
-Node.js >= 18.0.0
-npm >= 8.0.0 或 pnpm >= 7.0.0
-Chrome/Chromium >= 88.0
-```
+- **Node.js**: `>= 18.0.0`
+- **npm** / **pnpm**
+- **Chrome** / **Chromium**
 
 ### 2. 快速开始
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourusername/langear-language-extension.git
+git clone https://github.com/your-repo/langear-language-extension.git
 cd langear-language-extension
 
 # 安装依赖
 npm install
-# 或使用 pnpm
-pnpm install
 
 # 启动开发环境
 npm run dev
@@ -289,258 +161,10 @@ npm run dev
 
 ### 3. Chrome扩展加载
 
-1. 打开Chrome浏览器
-2. 访问 `chrome://extensions/`
-3. 开启"开发者模式"
-4. 点击"加载已解压的扩展程序"
-5. 选择项目的 `dist` 目录
-
-### 4. 可用脚本
-
-```bash
-npm run dev      # 开发环境
-npm run build    # 生产构建
-npm run preview  # 预览构建结果
-npm run lint     # 代码检查
-npm run test     # 运行测试
-```
-
-## 🎨 UI设计理念
-
-### 工业风设计原则
-
-1. **简洁高效** - 去除冗余元素，专注核心功能
-2. **机械美学** - 采用几何形状和金属质感
-3. **功能至上** - 每个元素都有明确的功能目的
-4. **一致性** - 统一的视觉语言和交互模式
-
-### 色彩方案
-
-```css
-/* 主色调 - 工业灰 */
---primary: #2D3748;
---primary-light: #4A5568;
---primary-dark: #1A202C;
-
-/* 辅助色 - 机械蓝 */
---accent: #2B6CB0;
---accent-light: #3182CE;
---accent-dark: #2C5282;
-
-/* 功能色 */
---success: #38A169;
---warning: #D69E2E;
---error: #E53E3E;
---info: #3182CE;
-
-/* 中性色 */
---gray-50: #F7FAFC;
---gray-100: #EDF2F7;
---gray-200: #E2E8F0;
---gray-300: #CBD5E0;
---gray-400: #A0AEC0;
---gray-500: #718096;
---gray-600: #4A5568;
---gray-700: #2D3748;
---gray-800: #1A202C;
---gray-900: #171923;
-```
-
-## 📊 核心功能实现
-
-### FSRS算法集成
-
-```typescript
-import { FSRS, createEmptyCard, Rating } from 'ts-fsrs';
-
-// 初始化FSRS实例
-const fsrs = new FSRS({
-  requestRetention: 0.9,
-  maximumInterval: 36500,
-  enableFuzz: true
-});
-
-// 创建新卡片
-const createNewCard = (noteId: number, template: string) => {
-  const card = createEmptyCard();
-  return {
-    ...card,
-    noteId,
-    cardTemplate: template,
-    id: generateId()
-  };
-};
-
-// 执行复习
-const reviewCard = (card: Card, rating: Rating, reviewDate: Date) => {
-  const schedulingCards = fsrs.repeat(card, reviewDate);
-  const result = schedulingCards[rating];
-  
-  // 更新卡片状态
-  updateCardInDB(result.card);
-  
-  // 记录复习日志
-  saveReviewLog({
-    cardId: card.id,
-    rating,
-    reviewTime: reviewDate,
-    ...result.log
-  });
-  
-  return result.card;
-};
-```
-
-### 卡片模板系统
-
-```typescript
-// 卡片模板定义
-interface CardTemplate {
-  type: string;
-  frontRenderer: (fields: Record<string, any>) => ReactNode;
-  backRenderer: (fields: Record<string, any>) => ReactNode;
-}
-
-// 汉译英模板
-const CtoETemplate: CardTemplate = {
-  type: 'CtoE_ZhToEn',
-  frontRenderer: (fields) => (
-    <div className="card-front">
-      <h2 className="text-2xl font-bold mb-4">请翻译以下句子</h2>
-      <p className="text-lg">{fields.chineseOriginal}</p>
-    </div>
-  ),
-  backRenderer: (fields) => (
-    <div className="card-back">
-      <h3 className="text-xl mb-2">参考翻译</h3>
-      <p className="text-lg mb-4">{fields.englishTranslation}</p>
-      {fields.userNotes && (
-        <div className="notes">
-          <h4 className="font-bold">笔记</h4>
-          <p>{fields.userNotes}</p>
-        </div>
-      )}
-    </div>
-  )
-};
-```
-
-## 🧪 测试策略
-
-### 测试层级
-
-1. **单元测试** - Jest + Testing Library
-   - FSRS算法逻辑测试
-   - 工具函数测试
-   - 组件单元测试
-
-2. **集成测试** - Chrome Extensions Testing
-   - 扩展加载测试
-   - 页面间通信测试
-   - 数据库操作测试
-
-3. **端到端测试** - Playwright
-   - 用户流程测试
-   - 复习循环测试
-   - 数据导入导出测试
-
-## 🚀 部署与发布
-
-### 构建流程
-
-```bash
-# 生产构建
-npm run build
-
-# 代码检查
-npm run lint
-
-# 运行测试
-npm run test
-
-# 打包扩展
-npm run package
-```
-
-### Chrome Web Store发布
-
-1. 注册Chrome开发者账户
-2. 准备扩展资源
-   - 图标 (16x16, 48x48, 128x128)
-   - 截图 (1280x800)
-   - 宣传图 (440x280)
-   - 详细描述
-3. 隐私政策文档
-4. 提交审核
-
-## 🛡️ 风险评估与应对
-
-### 技术风险
-
-| 风险项 | 风险等级 | 应对策略 |
-|--------|----------|----------|
-| Chrome API变更 | 中 | 关注官方文档，及时适配 |
-| IndexedDB兼容性 | 低 | 充分测试，提供降级方案 |
-| FSRS算法理解 | 中 | 深入学习文档，社区交流 |
-| 性能优化 | 中 | 代码分割，懒加载 |
-
-### 开发风险
-
-| 风险项 | 风险等级 | 应对策略 |
-|--------|----------|----------|
-| 开发时间评估 | 高 | 迭代开发，MVP优先 |
-| UI设计复杂度 | 中 | 组件化开发，设计系统 |
-| 测试覆盖率 | 中 | TDD开发模式 |
-
-## 🗺️ 路线图
-
-### v1.0.0 - MVP版本 (3个月)
-- ✅ 基础架构搭建
-- 🔲 FSRS算法集成
-- 🔲 汉译英卡片功能
-- 🔲 工业风UI设计
-- 🔲 基础数据可视化
-
-### v1.1.0 - 功能增强 (1个月)
-- 🔲 回译卡片模板
-- 🔲 音频播放功能
-- 🔲 学习统计优化
-
-### v1.2.0 - AI集成 (2个月)
-- 🔲 语音转文字
-- 🔲 智能反馈系统
-- 🔲 划词助手
-
-### v2.0.0 - 完整版本 (3个月)
-- 🔲 Anki格式支持
-- 🔲 云同步功能
-- 🔲 高级音频处理
-- 🔲 多语言支持
+1.  打开Chrome浏览器，访问 `chrome://extensions/`
+2.  开启"开发者模式"
+3.  点击"加载已解压的扩展程序"，选择项目的 `dist` 目录
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
-
-## 🤝 贡献指南
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-## 📞 联系方式
-
-- 项目主页: [https://github.com/yourusername/langear-language-extension](https://github.com/yourusername/langear-language-extension)
-- Issue追踪: [https://github.com/yourusername/langear-language-extension/issues](https://github.com/yourusername/langear-language-extension/issues)
-- 开发者: your.email@example.com
-
----
-
-<div align="center">
-
-**⚙️ AnGear - 工业级语言学习解决方案 ⚙️**
-
-Made with ❤️ and TypeScript
-
-</div> 
+本项目采用 MIT 许可证。 

@@ -100,23 +100,21 @@ export function SettingsPage() {
 
     setVerifyingApiKey(true);
     setErrors([]);
+    setSuccessMessage('');
     
-    try {
-      const result = await apiClient.verifyGeminiApiKey(settings.geminiApiKey);
-      setApiKeyValid(result.valid);
-      
-      if (result.valid) {
-        setSuccessMessage('API密钥验证成功！');
-      } else {
-        setErrors([result.error || 'API密钥验证失败']);
-      }
-    } catch (error) {
-      console.error('API key verification failed:', error);
-      setErrors(['API密钥验证失败，请检查网络连接']);
+    const response = await apiClient.verifyGeminiApiKey(settings.geminiApiKey);
+    
+    if (response.success && response.data?.valid) {
+      setApiKeyValid(true);
+      setSuccessMessage('API密钥验证成功！');
+    } else {
       setApiKeyValid(false);
-    } finally {
-      setVerifyingApiKey(false);
+      // 优先使用 data.error，然后是 response.error，最后是通用消息
+      const errorMessage = response.data?.error || response.error || 'API密钥验证失败';
+      setErrors([errorMessage]);
     }
+    
+    setVerifyingApiKey(false);
   };
 
   if (loading) {

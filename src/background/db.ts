@@ -408,6 +408,73 @@ export class DatabaseService {
         });
         break;
 
+      case 'audio_subtitle':
+        // 获取音频字幕字段
+        const audioSubtitleFields = note.fields.audio_subtitle;
+        if (!audioSubtitleFields) {
+          throw new Error('audio_subtitle note missing required fields');
+        }
+
+        // 1. 英文->中文翻译卡片
+        cards.push({
+          noteId: note.id,
+          deckId: note.deckId,
+          cardType: 'forward',
+          state: 'New',
+          due: now,
+          stability: 2.5,
+          difficulty: 0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          learningStep: 0,
+          audioId: audioSubtitleFields.audioId,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        // 2. 中文->英文翻译卡片（如果翻译不同于原文）
+        if (audioSubtitleFields.translatedText.trim() !== audioSubtitleFields.originalText.trim()) {
+          cards.push({
+            noteId: note.id,
+            deckId: note.deckId,
+            cardType: 'reverse',
+            state: 'New',
+            due: now,
+            stability: 2.5,
+            difficulty: 0,
+            elapsedDays: 0,
+            scheduledDays: 0,
+            reps: 0,
+            lapses: 0,
+            learningStep: 0,
+            audioId: audioSubtitleFields.audioId,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+
+        // 3. 音频理解卡片
+        cards.push({
+          noteId: note.id,
+          deckId: note.deckId,
+          cardType: 'audio_comprehension',
+          state: 'New',
+          due: now,
+          stability: 2.5,
+          difficulty: 0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          learningStep: 0,
+          audioId: audioSubtitleFields.audioId,
+          createdAt: now,
+          updatedAt: now,
+        });
+        break;
+
       default:
         throw new Error(`Unsupported note type: ${note.noteType}`);
     }

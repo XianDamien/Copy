@@ -6,9 +6,22 @@ import type { ChromeMessage, ApiResponse, Note, Card } from '../types';
  */
 export class ApiClient {
   /**
-   * 发送消息到background script
+   * 发送消息到background script（旧版本，抛出异常）
    */
   private async sendMessage<T = any>(type: string, payload?: any): Promise<T> {
+    const response = await this.sendMessageRaw<T>(type, payload);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Unknown error');
+    }
+    
+    return response.data as T;
+  }
+
+  /**
+   * 发送消息到background script（新版本，返回完整响应）
+   */
+  private async sendMessageRaw<T = any>(type: string, payload?: any): Promise<ApiResponse<T>> {
     const message: ChromeMessage = {
       type,
       payload,
@@ -18,14 +31,16 @@ export class ApiClient {
     try {
       const response: ApiResponse<T> = await chrome.runtime.sendMessage(message);
       
-      if (!response.success) {
-        throw new Error(response.error || 'Unknown error');
-      }
-      
-      return response.data as T;
+      // 直接返回完整的响应，让调用方处理 success/error
+      return response;
     } catch (error) {
       console.error(`API call failed: ${type}`, error);
-      throw error;
+      
+      // 对于网络层面的错误，包装成标准的 ApiResponse 格式
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
@@ -156,8 +171,8 @@ export class ApiClient {
   /**
    * 验证Gemini API密钥
    */
-  async verifyGeminiApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
-    return this.sendMessage('VERIFY_GEMINI_API_KEY', { apiKey });
+  async verifyGeminiApiKey(apiKey: string): Promise<ApiResponse<{ valid: boolean; error?: string }>> {
+    return this.sendMessageRaw('VERIFY_GEMINI_API_KEY', { apiKey });
   }
 
   // ==================== 卡片操作 ====================
@@ -313,6 +328,13 @@ export class ApiClient {
    */
   async getAudio(id: string): Promise<any> {
     return this.sendMessage('GET_AUDIO', { id });
+  }
+
+  /**
+   * 获取音频片段 (用于音频播放)
+   */
+  async getAudioClip(id: string): Promise<any> {
+    return this.sendMessage('GET_AUDIO_CLIP', { id });
   }
 
   /**

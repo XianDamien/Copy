@@ -43,7 +43,7 @@ export interface Deck {
   updatedAt: Date;
 }
 
-export type NoteType = 'CtoE' | 'Retranslate' | 'SentenceParaphrase' | 'Article';
+export type NoteType = 'CtoE' | 'Retranslate' | 'SentenceParaphrase' | 'Article' | 'audio_subtitle';
 
 
 
@@ -74,6 +74,15 @@ export interface NoteFields {
     difficulty: 'easy' | 'medium' | 'hard';
     questions: ArticleQuestion[];
   };
+  audio_subtitle: {
+    originalText: string;
+    translatedText: string;
+    audioId: string;
+    startTime: number;
+    endTime: number;
+    duration: number;
+    sourceFile: string;
+  };
 }
 
 export interface Note {
@@ -86,7 +95,7 @@ export interface Note {
   updatedAt: Date;
 }
 
-export type CardType = NoteType;
+export type CardType = NoteType | 'forward' | 'reverse' | 'audio_comprehension';
 
 export interface Card {
   id: number;

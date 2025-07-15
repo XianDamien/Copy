@@ -32,7 +32,7 @@ export default defineConfig({
         ],
         
         content_security_policy: {
-          extension_pages: "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com;"
+          extension_pages: "script-src 'self'; object-src 'self'; connect-src https://generativelanguage.googleapis.com;"
         },
         
         background: {

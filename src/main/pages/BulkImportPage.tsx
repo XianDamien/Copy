@@ -148,13 +148,13 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
     setApiKeyError(null);
     setApiKeySuccess(null);
     
-    try {
-      toast.loading('正在验证API密钥...', { id: 'verify-api-key' });
-      
-      const result = await apiClient.verifyGeminiApiKey(apiKey);
-      
-      if (result.valid) {
-        // 验证成功，保存到用户配置
+    toast.loading('正在验证API密钥...', { id: 'verify-api-key' });
+    
+    const result = await apiClient.verifyGeminiApiKey(apiKey);
+    
+    if (result.success && result.data?.valid) {
+      // 验证成功，保存到用户配置
+      try {
         const currentConfig = await apiClient.getUserConfig().catch(() => ({}));
         await apiClient.saveUserConfig({
           ...currentConfig,
@@ -165,19 +165,20 @@ export const BulkImportPage: React.FC<BulkImportPageProps> = ({ onBack, onImport
         setApiKeyError(null);
         setIsKeyAvailable(true);
         toast.success('API密钥验证成功并已保存！', { id: 'verify-api-key' });
-      } else {
+      } catch (error) {
         setApiKeySuccess(false);
-        setApiKeyError(result.error || 'API密钥验证失败');
-        toast.error(result.error || 'API密钥验证失败', { id: 'verify-api-key' });
+        setApiKeyError('保存配置失败，请重试');
+        toast.error('保存配置失败，请重试', { id: 'verify-api-key' });
       }
-    } catch (error: any) {
-      console.error('API key verification failed:', error);
+    } else {
       setApiKeySuccess(false);
-      setApiKeyError('验证失败，请检查网络连接');
-      toast.error('验证失败，请检查网络连接', { id: 'verify-api-key' });
-    } finally {
-      setIsVerifying(false);
+      // 优先使用 data.error，然后是 result.error，最后是通用消息
+      const errorMessage = result.data?.error || result.error || 'API密钥验证失败';
+      setApiKeyError(errorMessage);
+      toast.error(errorMessage, { id: 'verify-api-key' });
     }
+    
+    setIsVerifying(false);
   };
 
   const handleAiProcess = async () => {

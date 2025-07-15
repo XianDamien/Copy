@@ -414,6 +414,13 @@ class BackgroundService {
           // 音频获取功能暂未实现
           return { success: false, error: 'Audio retrieval not implemented yet' };
 
+        case 'GET_AUDIO_CLIP':
+          const audioClip = await dbService.getAudioClip(message.payload.id);
+          if (!audioClip) {
+            return { success: false, error: 'Audio clip not found' };
+          }
+          return { success: true, data: audioClip };
+
         case 'DELETE_AUDIO':
           // 音频删除功能暂未实现
           return { success: false, error: 'Audio deletion not implemented yet' };

@@ -2,6 +2,10 @@ import React, { useState, useCallback } from 'react';
 import { FileAudio, FileText, AlertCircle, CheckCircle, X, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseSubtitle, type SubtitleEntry } from '../../../shared/utils/subtitleParser';
+import { geminiService, type TranslatedSubtitle } from '../../../background/geminiService';
+import { ApiClient } from '../../../shared/utils/api';
+import { AudioSlicer, type AudioSegment } from '../../../shared/utils/audioSlicer';
+import { AudioBatchImporter, type AudioCardImportResult } from '../../../shared/utils/audioBatchImporter';
 import AudioVisualizer from './AudioVisualizer';
 import SubtitleList from './SubtitleList';
 
@@ -26,6 +30,8 @@ export const AudioSubtitleImporter: React.FC<AudioSubtitleImporterProps> = ({
 }) => {
   // TODO: 后续实现完整的导入流程时使用onImportComplete
   console.log('AudioSubtitleImporter loaded', { onImportComplete });
+  
+  const apiClient = React.useMemo(() => new ApiClient(), []);
   const [audioFile, setAudioFile] = useState<UploadedFile | null>(null);
   const [subtitleFile, setSubtitleFile] = useState<UploadedFile | null>(null);
   const [dragActive, setDragActive] = useState<'audio' | 'subtitle' | null>(null);
@@ -35,8 +41,26 @@ export const AudioSubtitleImporter: React.FC<AudioSubtitleImporterProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   
-  // 处理阶段：upload -> processing -> preview
-  const [stage, setStage] = useState<'upload' | 'processing' | 'preview'>('upload');
+  // 翻译状态
+  const [translatedSubtitles, setTranslatedSubtitles] = useState<TranslatedSubtitle[]>([]);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState(0);
+  const [apiKey, setApiKey] = useState('');
+  
+  // 音频切分状态
+  const [audioSegments, setAudioSegments] = useState<AudioSegment[]>([]);
+  const [isSlicing, setIsSlicing] = useState(false);
+  const [slicingProgress, setSlicingProgress] = useState(0);
+  
+  // 导入状态
+  const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
+  const [availableDecks, setAvailableDecks] = useState<any[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResult, setImportResult] = useState<AudioCardImportResult | null>(null);
+  
+  // 处理阶段：upload -> processing -> preview -> translation -> cards -> slicing -> importing -> complete
+  const [stage, setStage] = useState<'upload' | 'processing' | 'preview' | 'translation' | 'cards' | 'slicing' | 'importing' | 'complete'>('upload');
 
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
@@ -271,6 +295,176 @@ export const AudioSubtitleImporter: React.FC<AudioSubtitleImporterProps> = ({
     // AudioVisualizer组件会处理实际的跳转
   }, []);
 
+  // 加载API密钥
+  const loadApiKey = useCallback(async () => {
+    try {
+      const userConfig = await apiClient.getUserConfig();
+      if (userConfig.geminiApiKey) {
+        setApiKey(userConfig.geminiApiKey);
+      }
+    } catch (error) {
+      console.error('加载API密钥失败:', error);
+    }
+  }, []);
+
+  // 组件挂载时加载API密钥和牌组列表
+  React.useEffect(() => {
+    loadApiKey();
+    loadAvailableDecks();
+  }, [loadApiKey]);
+
+  // 加载可用牌组
+  const loadAvailableDecks = useCallback(async () => {
+    try {
+      const decks = await apiClient.getAllDecks();
+      setAvailableDecks(decks);
+      if (decks.length > 0 && !selectedDeckId) {
+        setSelectedDeckId(decks[0].id);
+      }
+    } catch (error) {
+      console.error('加载牌组列表失败:', error);
+      toast.error('加载牌组列表失败');
+    }
+  }, [selectedDeckId]);
+
+  // 开始AI翻译
+  const handleStartTranslation = useCallback(async () => {
+    if (!apiKey) {
+      toast.error('请先在文本导入模式中设置Gemini API密钥');
+      return;
+    }
+
+    if (subtitleEntries.length === 0) {
+      toast.error('没有字幕条目需要翻译');
+      return;
+    }
+
+    setIsTranslating(true);
+    setStage('translation');
+    setTranslationProgress(0);
+
+    try {
+      const translationInput = subtitleEntries.map(entry => ({
+        id: entry.id,
+        text: entry.text,
+        startTime: entry.startTime,
+        endTime: entry.endTime
+      }));
+
+      const result = await geminiService.translateSubtitlesBatch(
+        translationInput,
+        apiKey,
+        (progress) => {
+          setTranslationProgress(progress);
+        }
+      );
+
+      if (result.success && result.data) {
+        setTranslatedSubtitles(result.data);
+        toast.success(`成功翻译 ${result.data.length} 个字幕条目`);
+        setStage('cards');
+      } else {
+        toast.error(result.error || '翻译失败');
+        setStage('preview');
+      }
+    } catch (error) {
+      console.error('翻译过程失败:', error);
+      toast.error('翻译过程中发生错误');
+      setStage('preview');
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [apiKey, subtitleEntries, geminiService]);
+
+  // 开始音频切分
+  const handleStartSlicing = useCallback(async () => {
+    if (!audioFile || translatedSubtitles.length === 0) {
+      toast.error('缺少音频文件或翻译数据');
+      return;
+    }
+
+    setIsSlicing(true);
+    setStage('slicing');
+    setSlicingProgress(0);
+
+    try {
+      const audioSlicer = new AudioSlicer();
+      
+      const result = await audioSlicer.sliceAudioBySubtitles(
+        audioFile.file,
+        translatedSubtitles,
+        (progress) => {
+          setSlicingProgress(progress);
+        }
+      );
+
+      audioSlicer.dispose(); // 释放音频上下文资源
+
+      if (result.success && result.segments) {
+        setAudioSegments(result.segments);
+        toast.success(`成功切分 ${result.segments.length} 个音频片段`);
+        setStage('importing');
+      } else {
+        toast.error(result.error || '音频切分失败');
+        setStage('cards');
+      }
+    } catch (error) {
+      console.error('音频切分失败:', error);
+      toast.error('音频切分过程中发生错误');
+      setStage('cards');
+    } finally {
+      setIsSlicing(false);
+    }
+  }, [audioFile, translatedSubtitles]);
+
+  // 开始批量导入
+  const handleStartImporting = useCallback(async () => {
+    if (!selectedDeckId || audioSegments.length === 0) {
+      toast.error('请选择牌组并确保有音频片段');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(0);
+
+    try {
+      const batchImporter = new AudioBatchImporter();
+      
+      const importData = {
+        deckId: selectedDeckId,
+        audioSegments,
+        sourceFileName: audioFile?.name || 'unknown'
+      };
+
+      // 验证导入数据
+      const validation = await batchImporter.validateImportData(importData);
+      if (!validation.valid) {
+        toast.error(`导入数据验证失败: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      const result = await batchImporter.importAudioCards(
+        importData,
+        (progress) => {
+          setImportProgress(progress);
+        }
+      );
+
+      if (result.success) {
+        setImportResult(result);
+        toast.success(`成功导入 ${result.totalCards} 张卡片，${result.totalNotes} 个笔记`);
+        setStage('complete');
+      } else {
+        toast.error(result.error || '批量导入失败');
+      }
+    } catch (error) {
+      console.error('批量导入失败:', error);
+      toast.error('批量导入过程中发生错误');
+    } finally {
+      setIsImporting(false);
+    }
+  }, [selectedDeckId, audioSegments, audioFile]);
+
   // 处理中界面
   if (stage === 'processing') {
     return (
@@ -279,6 +473,281 @@ export const AudioSubtitleImporter: React.FC<AudioSubtitleImporterProps> = ({
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">处理文件中</h3>
           <p className="text-gray-600">正在解析音频和字幕文件，请稍候...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 翻译中界面
+  if (stage === 'translation') {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 border-4 border-green-200 border-t-green-500 rounded-full animate-spin mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">AI翻译中</h3>
+          <p className="text-gray-600 mb-4">正在使用Gemini AI翻译字幕内容...</p>
+          
+          {/* 进度条 */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div 
+              className="bg-green-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${translationProgress}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-500">{translationProgress}% 完成</p>
+          
+          <div className="mt-4 text-xs text-gray-400">
+            <p>• 正在批量处理 {subtitleEntries.length} 个字幕条目</p>
+            <p>• 请保持网络连接稳定</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  // 卡片预览界面
+  if (stage === 'cards') {
+    return (
+      <div className="space-y-6">
+        {/* 返回按钮 */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setStage('preview')}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+            <span>返回预览</span>
+          </button>
+          <div className="text-sm text-gray-500">
+            翻译完成 - {translatedSubtitles.length} 个学习卡片
+          </div>
+        </div>
+
+        <div className="card-industrial p-6">
+          <h3 className="text-lg font-semibold text-primary-900 mb-4">翻译结果预览</h3>
+          <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
+            {translatedSubtitles.map((subtitle, index) => (
+              <div key={subtitle.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500">#{index + 1}</span>
+                  <span className="text-xs text-gray-400">
+                    {Math.round(subtitle.startTime / 1000)}s - {Math.round(subtitle.endTime / 1000)}s
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 bg-white p-2 rounded border">
+                    <span className="text-xs text-gray-500">原文：</span>
+                    <p>{subtitle.originalText}</p>
+                  </div>
+                  <div className="text-sm text-gray-900 bg-green-50 p-2 rounded border border-green-200">
+                    <span className="text-xs text-green-600">译文：</span>
+                    <p>{subtitle.translatedText}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-center space-x-4">
+            <button
+              onClick={() => setStage('preview')}
+              className="btn-secondary px-6 py-2"
+            >
+              重新翻译
+            </button>
+            <button
+              onClick={handleStartSlicing}
+              disabled={isSlicing || !translatedSubtitles.length}
+              className="btn-primary px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSlicing ? '切分中...' : '开始音频切分'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 音频切分中界面
+  if (stage === 'slicing') {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">音频切分中</h3>
+          <p className="text-gray-600 mb-4">正在根据字幕时间戳切分音频文件...</p>
+          
+          {/* 进度条 */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${slicingProgress}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-500">{slicingProgress}% 完成</p>
+          
+          <div className="mt-4 text-xs text-gray-400">
+            <p>• 正在切分 {translatedSubtitles.length} 个音频片段</p>
+            <p>• 使用Web Audio API进行精确切分</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 导入准备界面
+  if (stage === 'importing') {
+    const batchImporter = new AudioBatchImporter();
+    const preview = batchImporter.getImportPreview(audioSegments);
+    
+    return (
+      <div className="space-y-6">
+        {/* 返回按钮 */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setStage('cards')}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+            <span>返回卡片预览</span>
+          </button>
+          <div className="text-sm text-gray-500">
+            准备导入 - {audioSegments.length} 个音频片段
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 导入预览 */}
+          <div className="card-industrial p-6">
+            <h3 className="text-lg font-semibold text-primary-900 mb-4">导入预览</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-sm text-gray-600">音频片段数量</span>
+                <span className="font-medium">{preview.totalSegments}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-sm text-gray-600">预计生成笔记</span>
+                <span className="font-medium">{preview.estimatedNotes}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-sm text-gray-600">预计生成卡片</span>
+                <span className="font-medium">{preview.estimatedCards}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-sm text-gray-600">总音频时长</span>
+                <span className="font-medium">{Math.round(preview.totalDuration / 1000)}秒</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm text-gray-600">平均片段时长</span>
+                <span className="font-medium">{Math.round(preview.averageDuration / 1000)}秒</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 导入设置 */}
+          <div className="card-industrial p-6">
+            <h3 className="text-lg font-semibold text-primary-900 mb-4">导入设置</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  选择目标牌组
+                </label>
+                <select
+                  value={selectedDeckId || ''}
+                  onChange={(e) => setSelectedDeckId(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">请选择牌组</option>
+                  {availableDecks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">卡片类型说明</h4>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>• <strong>翻译卡片</strong>：英文→中文翻译练习</p>
+                  <p>• <strong>反向卡片</strong>：中文→英文翻译练习</p>
+                  <p>• <strong>听力卡片</strong>：听音频理解内容</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleStartImporting}
+                disabled={isImporting || !selectedDeckId}
+                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isImporting ? `导入中... ${importProgress}%` : '开始导入卡片'}
+              </button>
+
+              {!selectedDeckId && availableDecks.length === 0 && (
+                <p className="text-xs text-red-600">
+                  没有可用的牌组，请先创建一个牌组
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 导入完成界面
+  if (stage === 'complete' && importResult) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">导入完成！</h3>
+          <p className="text-gray-600">音频+字幕批量制卡已成功完成</p>
+        </div>
+
+        <div className="card-industrial p-6">
+          <h3 className="text-lg font-semibold text-primary-900 mb-4">导入结果</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">{importResult.totalNotes}</div>
+              <div className="text-sm text-blue-700">创建笔记</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{importResult.totalCards}</div>
+              <div className="text-sm text-green-700">创建卡片</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center space-x-4">
+            <button
+              onClick={() => {
+                // 重置状态，开始新的导入
+                setStage('upload');
+                setAudioFile(null);
+                setSubtitleFile(null);
+                setSubtitleEntries([]);
+                setTranslatedSubtitles([]);
+                setAudioSegments([]);
+                setImportResult(null);
+              }}
+              className="btn-secondary px-6 py-2"
+            >
+              导入更多文件
+            </button>
+            <button
+              onClick={() => {
+                // 关闭组件或导航到牌组页面
+                onImportComplete?.(importResult);
+              }}
+              className="btn-primary px-6 py-2"
+            >
+              查看导入的卡片
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -340,14 +809,17 @@ export const AudioSubtitleImporter: React.FC<AudioSubtitleImporterProps> = ({
                   <li>• 播放音频验证同步效果</li>
                 </ul>
                 <button
-                  onClick={() => {
-                    // TODO: 进入AI翻译阶段
-                    toast.success('即将进入AI翻译阶段...');
-                  }}
-                  className="btn-primary w-full"
+                  onClick={handleStartTranslation}
+                  disabled={isTranslating || !apiKey}
+                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  开始AI翻译
+                  {isTranslating ? '翻译中...' : '开始AI翻译'}
                 </button>
+                {!apiKey && (
+                  <p className="text-xs text-red-600 mt-1">
+                    请先在文本导入模式中设置Gemini API密钥
+                  </p>
+                )}
               </div>
 
               <div className="text-xs text-gray-500">

@@ -781,6 +781,7 @@ export const Review: React.FC<ReviewProps> = ({ deckId, onBack }) => {
             <div className="relative">
               <CardDisplay
                 note={currentCard.note}
+                card={currentCard}
                 showAnswer={reviewState === 'answer'}
                 onNoteChange={handleNoteUpdate}
                 editedNotes={editedNotes}
